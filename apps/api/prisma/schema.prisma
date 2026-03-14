@@ -1,0 +1,732 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── TEA ────────────────────────────────────────────────────────────────────
+
+model CollectionCentre {
+  id                String   @id @default(uuid())
+  canonicalName     String   @unique
+  alternateSpellings String[]
+  latitude          Decimal? @db.Decimal(9, 6)
+  longitude         Decimal? @db.Decimal(9, 6)
+  active            Boolean  @default(true)
+  pickingCycleDays  Int      @default(14)
+  lastPickingDate   DateTime? @db.Date
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  pickingSessions      PickingSession[]
+  accountCentreMappings AccountCentreMapping[]
+  workPlanEvents       WorkPlanEvent[]
+  teaSmsDeliveries     TeaSmsDelivery[]
+
+  @@map("collection_centres")
+}
+
+model KtdaAccount {
+  id              String   @id @default(uuid())
+  accountCode     String   @unique
+  holderName      String
+  holderNationalId String?
+  bankName        String?
+  bankAccount     String?
+  bushesRegistered Int?
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  accountCentreMappings AccountCentreMapping[]
+  monthlyRecords        KtdaMonthlyRecord[]
+  smsAllocations        TeaSmsAllocation[]
+
+  @@map("ktda_accounts")
+}
+
+model AccountCentreMapping {
+  id            String   @id @default(uuid())
+  centreId      String
+  accountLetter String   @db.Char(1)
+  ktdaAccountId String
+  effectiveFrom DateTime @db.Date
+  effectiveTo   DateTime? @db.Date
+
+  centre      CollectionCentre @relation(fields: [centreId], references: [id])
+  ktdaAccount KtdaAccount      @relation(fields: [ktdaAccountId], references: [id])
+
+  @@unique([centreId, accountLetter, effectiveFrom])
+  @@map("account_centre_mapping")
+}
+
+model PickingSession {
+  id                   String   @id @default(uuid())
+  sessionDate          DateTime @db.Date
+  centreId             String
+  pickerTotalKg        Decimal? @db.Decimal(8, 2)
+  smsReportedKg        Decimal? @db.Decimal(8, 2)
+  reconciliationStatus String   @default("pending")
+  discrepancyKg        Decimal? @db.Decimal(8, 2)
+  notes                String?
+  createdBy            String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  centre        CollectionCentre @relation(fields: [centreId], references: [id])
+  pickerRecords PickerRecord[]
+
+  @@unique([sessionDate, centreId])
+  @@index([sessionDate])
+  @@index([centreId])
+  @@map("picking_sessions")
+}
+
+model PickerRecord {
+  id        String   @id @default(uuid())
+  sessionId String
+  staffId   String
+  kgPicked  Decimal  @db.Decimal(8, 2)
+  ratePerKg Decimal  @db.Decimal(6, 2)
+  grossPay  Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+
+  session PickingSession @relation(fields: [sessionId], references: [id])
+  staff   Staff          @relation(fields: [staffId], references: [id])
+
+  @@map("picker_records")
+}
+
+model TeaSmsRecord {
+  id          String   @id @default(uuid())
+  receivedAt  DateTime
+  senderPhone String
+  rawSms      String
+  parsed      Boolean  @default(false)
+  parseError  String?
+  createdAt   DateTime @default(now())
+
+  deliveries TeaSmsDelivery[]
+
+  @@map("tea_sms_records")
+}
+
+model TeaSmsDelivery {
+  id              String   @id @default(uuid())
+  smsRecordId     String
+  deliveryDate    DateTime @db.Date
+  centreId        String?
+  centreRawName   String?
+  cumulativeKg    Decimal? @db.Decimal(8, 2)
+  todayKg         Decimal? @db.Decimal(8, 2)
+  casualKg        Decimal? @db.Decimal(8, 2)
+  casualPayKes    Decimal? @db.Decimal(10, 2)
+  supervisorFloat Decimal? @db.Decimal(10, 2)
+  parseConfidence Decimal? @db.Decimal(4, 3)
+  createdAt       DateTime @default(now())
+
+  smsRecord   TeaSmsRecord     @relation(fields: [smsRecordId], references: [id])
+  centre      CollectionCentre? @relation(fields: [centreId], references: [id])
+  allocations TeaSmsAllocation[]
+
+  @@map("tea_sms_deliveries")
+}
+
+model TeaSmsAllocation {
+  id            String  @id @default(uuid())
+  deliveryId    String
+  accountLetter String  @db.Char(1)
+  ktdaAccountId String?
+  kgAllocated   Decimal @db.Decimal(8, 2)
+
+  delivery    TeaSmsDelivery @relation(fields: [deliveryId], references: [id])
+  ktdaAccount KtdaAccount?   @relation(fields: [ktdaAccountId], references: [id])
+
+  @@map("tea_sms_allocations")
+}
+
+model KtdaMonthlyRecord {
+  id                        String   @id @default(uuid())
+  ktdaAccountId             String
+  periodMonth               Int
+  periodYear                Int
+  greenLeafKg               Decimal? @db.Decimal(8, 2)
+  ratePerKg                 Decimal? @db.Decimal(6, 2)
+  grossEarnings             Decimal? @db.Decimal(10, 2)
+  fertiliserSuspenseDeduction Decimal? @db.Decimal(10, 2)
+  totalOtherDeductions      Decimal? @db.Decimal(10, 2)
+  totalDeductions           Decimal? @db.Decimal(10, 2)
+  netPay                    Decimal? @db.Decimal(10, 2)
+  paymentReceivedDate       DateTime? @db.Date
+  fertiliserSuspenseBalance Decimal? @db.Decimal(10, 2)
+  accumulatedWeightYtd      Decimal? @db.Decimal(10, 2)
+  yieldPerBush              Decimal? @db.Decimal(6, 3)
+  ytdYield                  Decimal? @db.Decimal(8, 3)
+  adviceSlipImageId         String?
+  reconciliationStatus      String   @default("pending")
+  smsToTalKg                Decimal? @db.Decimal(8, 2)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  ktdaAccount KtdaAccount @relation(fields: [ktdaAccountId], references: [id])
+
+  @@unique([ktdaAccountId, periodMonth, periodYear])
+  @@map("ktda_monthly_records")
+}
+
+// ─── DAIRY ──────────────────────────────────────────────────────────────────
+
+model Cow {
+  id                     String    @id @default(uuid())
+  name                   String
+  tagNumber              String?
+  breed                  String?
+  dateOfBirth            DateTime? @db.Date
+  damId                  String?
+  status                 String    @default("milking")
+  currentLactationNumber Int?
+  dateLastCalved         DateTime? @db.Date
+  expectedDryOffDate     DateTime? @db.Date
+  expectedCalvingDate    DateTime? @db.Date
+  lastHeatObserved       DateTime? @db.Date
+  lastInseminationDate   DateTime? @db.Date
+  pregnancyConfirmedDate DateTime? @db.Date
+  photoId                String?
+  active                 Boolean   @default(true)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  dam                 Cow?                  @relation("CowDam", fields: [damId], references: [id])
+  calves              Cow[]                 @relation("CowDam")
+  milkProduction      MilkProduction[]
+  healthEvents        HealthEvent[]
+  reproductionEvents  ReproductionEvent[]
+  calvesRecords       Calf[]
+
+  @@map("cows")
+}
+
+model MilkProduction {
+  id              String   @id @default(uuid())
+  productionDate  DateTime @db.Date
+  cowId           String?
+  session         String
+  litres          Decimal  @db.Decimal(6, 2)
+  withdrawalActive Boolean @default(false)
+  saleable        Boolean  @default(true)
+  notes           String?
+  source          String   @default("manual")
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  cow Cow? @relation(fields: [cowId], references: [id])
+
+  @@unique([productionDate, cowId, session])
+  @@index([productionDate])
+  @@index([cowId])
+  @@map("milk_production")
+}
+
+model MilkBuyer {
+  id             String   @id @default(uuid())
+  canonicalName  String   @unique
+  paymentType    String
+  pricePerLitre  Decimal? @db.Decimal(6, 2)
+  currentBalance Decimal  @default(0) @db.Decimal(10, 2)
+  phone          String?
+  active         Boolean  @default(true)
+
+  deliveries MilkDelivery[]
+
+  @@map("milk_buyers")
+}
+
+model MilkDelivery {
+  id              String   @id @default(uuid())
+  deliveryDate    DateTime @db.Date
+  buyerId         String
+  litres          Decimal  @db.Decimal(6, 2)
+  pricePerLitre   Decimal  @db.Decimal(6, 2)
+  totalValue      Decimal  @db.Decimal(10, 2)
+  paymentReceived Boolean  @default(false)
+  paymentDate     DateTime? @db.Date
+  source          String   @default("manual")
+  createdAt       DateTime @default(now())
+
+  buyer MilkBuyer @relation(fields: [buyerId], references: [id])
+
+  @@map("milk_deliveries")
+}
+
+model HealthEvent {
+  id            String   @id @default(uuid())
+  cowId         String
+  eventDate     DateTime @db.Date
+  eventType     String
+  conditionName String?
+  symptoms      String?
+  vetId         String?
+  sourceImageId String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  cow        Cow         @relation(fields: [cowId], references: [id])
+  treatments Treatment[]
+
+  @@index([cowId])
+  @@index([eventDate])
+  @@map("health_events")
+}
+
+model Treatment {
+  id                   String   @id @default(uuid())
+  healthEventId        String
+  drugName             String
+  dosageRoute          String?
+  durationDays         Int?
+  withdrawalPeriodDays Int      @default(0)
+  withdrawalEndsDate   DateTime? @db.Date
+  costKes              Decimal? @db.Decimal(10, 2)
+  createdAt            DateTime @default(now())
+
+  healthEvent HealthEvent @relation(fields: [healthEventId], references: [id])
+
+  @@index([withdrawalEndsDate])
+  @@map("treatments")
+}
+
+model ReproductionEvent {
+  id                  String   @id @default(uuid())
+  cowId               String
+  eventDate           DateTime @db.Date
+  eventType           String
+  heatIntensity       String?
+  semenCode           String?
+  technician          String?
+  confirmationMethod  String?
+  expectedCalvingDate DateTime? @db.Date
+  complications       String?
+  notes               String?
+  createdAt           DateTime @default(now())
+
+  cow    Cow    @relation(fields: [cowId], references: [id])
+  calves Calf[]
+
+  @@map("reproduction_events")
+}
+
+model Calf {
+  id              String   @id @default(uuid())
+  damId           String
+  calvingEventId  String?
+  dateOfBirth     DateTime @db.Date
+  sex             String
+  birthWeightKg   Decimal? @db.Decimal(5, 2)
+  status          String   @default("active")
+  dateWeaned      DateTime? @db.Date
+  saleDate        DateTime? @db.Date
+  saleBuyer       String?
+  salePriceKes    Decimal? @db.Decimal(10, 2)
+  createdAt       DateTime @default(now())
+
+  dam          Cow                @relation(fields: [damId], references: [id])
+  calvingEvent ReproductionEvent? @relation(fields: [calvingEventId], references: [id])
+
+  @@map("calves")
+}
+
+// ─── CROPS ──────────────────────────────────────────────────────────────────
+
+model Plot {
+  id             String   @id @default(uuid())
+  canonicalName  String   @unique
+  plotType       String
+  areaHa         Decimal? @db.Decimal(8, 4)
+  boundaryGeojson Json?
+  currentCrop    String?
+  active         Boolean  @default(true)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  cropActivities CropActivity[]
+  workPlanEvents WorkPlanEvent[]
+
+  @@map("plots")
+}
+
+model CropActivity {
+  id               String   @id @default(uuid())
+  activityDate     DateTime @db.Date
+  plotId           String
+  activityType     String
+  crop             String?
+  completionStatus String   @default("pending")
+  labourDays       Decimal? @db.Decimal(4, 1)
+  workPlanEventId  String?
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  plot          Plot           @relation(fields: [plotId], references: [id])
+  workPlanEvent WorkPlanEvent? @relation(fields: [workPlanEventId], references: [id])
+
+  @@map("crop_activities")
+}
+
+model WorkPlan {
+  id               String   @id @default(uuid())
+  periodMonth      Int
+  periodYear       Int
+  rawText          String
+  parsed           Boolean  @default(false)
+  parseErrorsCount Int      @default(0)
+  createdBy        String?
+  createdAt        DateTime @default(now())
+
+  events WorkPlanEvent[]
+
+  @@unique([periodMonth, periodYear])
+  @@map("work_plans")
+}
+
+model WorkPlanEvent {
+  id              String   @id @default(uuid())
+  workPlanId      String
+  startDate       DateTime @db.Date
+  endDate         DateTime? @db.Date
+  activityType    String
+  plotId          String?
+  centreId        String?
+  locationRaw     String?
+  locationMatched Boolean  @default(false)
+  crop            String?
+  assignedToStaffId String?
+  notes           String?
+  parseConfidence Decimal? @db.Decimal(4, 3)
+  parseWarning    String?
+  createdAt       DateTime @default(now())
+
+  workPlan       WorkPlan          @relation(fields: [workPlanId], references: [id])
+  plot           Plot?             @relation(fields: [plotId], references: [id])
+  centre         CollectionCentre? @relation(fields: [centreId], references: [id])
+  cropActivities CropActivity[]
+
+  @@index([startDate])
+  @@map("work_plan_events")
+}
+
+// ─── STAFF & PAYROLL ────────────────────────────────────────────────────────
+
+model Staff {
+  id                       String   @id @default(uuid())
+  fullName                 String
+  nationalId               String?
+  phone                    String?
+  employmentType           String
+  startDate                DateTime? @db.Date
+  monthlySalary            Decimal? @db.Decimal(10, 2)
+  dailyRate                Decimal? @db.Decimal(8, 2)
+  pickerRatePerKg          Decimal? @db.Decimal(6, 2)
+  paymentMethod            String   @default("cash")
+  mpesaNumber              String?
+  nhifNumber               String?
+  nssfNumber               String?
+  statutoryDeductionsActive Boolean @default(false)
+  active                   Boolean  @default(true)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  pickerRecords    PickerRecord[]
+  advances         Advance[]
+  payrollRecords   MonthlyPayrollRecord[]
+  advancesRecorded Advance[]              @relation("AdvanceRecordedBy")
+
+  @@map("staff")
+}
+
+model Advance {
+  id              String   @id @default(uuid())
+  staffId         String
+  advanceDate     DateTime @db.Date
+  amountKes       Decimal  @db.Decimal(10, 2)
+  reason          String?
+  amountRecovered Decimal  @default(0) @db.Decimal(10, 2)
+  fullyRecovered  Boolean  @default(false)
+  recordedBy      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  staff      Staff              @relation(fields: [staffId], references: [id])
+  recorder   Staff?             @relation("AdvanceRecordedBy", fields: [recordedBy], references: [id])
+  deductions AdvanceDeduction[]
+
+  @@index([staffId])
+  @@index([fullyRecovered])
+  @@map("advances")
+}
+
+model AdvanceDeduction {
+  id            String   @id @default(uuid())
+  advanceId     String
+  payrollRunId  String
+  payrollType   String
+  deductionDate DateTime @db.Date
+  amountDeducted Decimal @db.Decimal(10, 2)
+  createdAt     DateTime @default(now())
+
+  advance Advance @relation(fields: [advanceId], references: [id])
+
+  @@index([advanceId])
+  @@map("advance_deductions")
+}
+
+model MonthlyPayrollRun {
+  id          String   @id @default(uuid())
+  periodMonth Int
+  periodYear  Int
+  status      String   @default("draft")
+  approvedBy  String?
+  approvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  records MonthlyPayrollRecord[]
+
+  @@unique([periodMonth, periodYear])
+  @@map("monthly_payroll_runs")
+}
+
+model MonthlyPayrollRecord {
+  id              String   @id @default(uuid())
+  payrollRunId    String
+  staffId         String
+  grossSalary     Decimal  @db.Decimal(10, 2)
+  advanceDeduction Decimal @default(0) @db.Decimal(10, 2)
+  nhifDeduction   Decimal  @default(0) @db.Decimal(10, 2)
+  nssfDeduction   Decimal  @default(0) @db.Decimal(10, 2)
+  otherDeductions Decimal  @default(0) @db.Decimal(10, 2)
+  netPay          Decimal  @db.Decimal(10, 2)
+  paymentMethod   String   @default("cash")
+  paymentDate     DateTime? @db.Date
+  mpesaRef        String?
+  createdAt       DateTime @default(now())
+
+  payrollRun MonthlyPayrollRun @relation(fields: [payrollRunId], references: [id])
+  staff      Staff             @relation(fields: [staffId], references: [id])
+
+  @@unique([payrollRunId, staffId])
+  @@index([payrollRunId])
+  @@index([staffId])
+  @@map("monthly_payroll_records")
+}
+
+// ─── RENTAL ─────────────────────────────────────────────────────────────────
+
+model RentalRoom {
+  id                    String   @id @default(uuid())
+  roomNumber            Int      @unique
+  tenantName            String?
+  tenantPhone           String?
+  monthlyRentKes        Decimal? @db.Decimal(10, 2)
+  electricityRatePerUnit Decimal @default(30) @db.Decimal(6, 2)
+  occupancyStatus       String   @default("occupied")
+  rentDueDay            Int      @default(5)
+  notes                 String?
+  active                Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  electricityReadings ElectricityReading[]
+  rentPayments        RentPayment[]
+
+  @@map("rental_rooms")
+}
+
+model ElectricityReading {
+  id              String   @id @default(uuid())
+  roomId          String
+  readingDate     DateTime @db.Date
+  meterReading    Decimal  @db.Decimal(10, 2)
+  previousReading Decimal? @db.Decimal(10, 2)
+  unitsConsumed   Decimal? @db.Decimal(10, 2)
+  amountKes       Decimal? @db.Decimal(10, 2)
+  source          String   @default("whatsapp")
+  rawMessage      String?
+  parseConfidence Decimal? @db.Decimal(4, 3)
+  createdAt       DateTime @default(now())
+
+  room RentalRoom @relation(fields: [roomId], references: [id])
+
+  @@unique([roomId, readingDate])
+  @@index([roomId])
+  @@index([readingDate])
+  @@map("electricity_readings")
+}
+
+model RentPayment {
+  id                  String   @id @default(uuid())
+  roomId              String
+  paymentDate         DateTime @db.Date
+  periodMonth         Int
+  periodYear          Int
+  rentAmountKes       Decimal  @default(0) @db.Decimal(10, 2)
+  electricityAmountKes Decimal @default(0) @db.Decimal(10, 2)
+  totalAmountKes      Decimal  @db.Decimal(10, 2)
+  paymentMethod       String   @default("mpesa")
+  mpesaRef            String?
+  notes               String?
+  createdAt           DateTime @default(now())
+
+  room RentalRoom @relation(fields: [roomId], references: [id])
+
+  @@index([roomId])
+  @@index([periodYear, periodMonth])
+  @@map("rent_payments")
+}
+
+// ─── FINANCE ────────────────────────────────────────────────────────────────
+
+model ExpenseRecord {
+  id            String   @id @default(uuid())
+  expenseDate   DateTime @db.Date
+  enterprise    String
+  account       String
+  amountKes     Decimal  @db.Decimal(10, 2)
+  description   String?
+  vendor        String?
+  receiptImageId String?
+  paymentMethod String?
+  mpesaRef      String?
+  approved      Boolean  @default(false)
+  approvedBy    String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([expenseDate])
+  @@index([enterprise])
+  @@map("expense_records")
+}
+
+model MpesaTransaction {
+  id                String   @id @default(uuid())
+  transactionRef    String   @unique
+  direction         String
+  amountKes         Decimal  @db.Decimal(10, 2)
+  feeKes            Decimal  @default(0) @db.Decimal(10, 2)
+  counterpartyName  String?
+  counterpartyPhone String?
+  transactionAt     DateTime
+  platform          String   @default("mpesa")
+  rawSms            String?
+  matched           Boolean  @default(false)
+  matchedEntityType String?
+  matchedEntityId   String?
+  createdAt         DateTime @default(now())
+
+  @@index([counterpartyPhone])
+  @@map("mpesa_transactions")
+}
+
+// ─── INVENTORY ──────────────────────────────────────────────────────────────
+
+model InventoryItem {
+  id                  String   @id @default(uuid())
+  canonicalName       String   @unique
+  category            String
+  unitOfMeasure       String
+  reorderLevel        Decimal? @db.Decimal(10, 2)
+  currentStock        Decimal  @default(0) @db.Decimal(10, 2)
+  lastPurchaseDate    DateTime? @db.Date
+  lastPurchasePricePerUnit Decimal? @db.Decimal(8, 2)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  movements StockMovement[]
+
+  @@map("inventory_items")
+}
+
+model StockMovement {
+  id            String   @id @default(uuid())
+  itemId        String
+  movementDate  DateTime @db.Date
+  movementType  String
+  quantity      Decimal  @db.Decimal(10, 2)
+  unitCost      Decimal? @db.Decimal(8, 2)
+  totalCost     Decimal? @db.Decimal(10, 2)
+  referenceId   String?
+  referenceType String?
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  item InventoryItem @relation(fields: [itemId], references: [id])
+
+  @@index([itemId])
+  @@map("stock_movements")
+}
+
+// ─── ALERTS ─────────────────────────────────────────────────────────────────
+
+model Alert {
+  id             String   @id @default(uuid())
+  alertCode      String
+  priority       String
+  title          String
+  body           String
+  entityType     String?
+  entityId       String?
+  status         String   @default("active")
+  snoozedUntil   DateTime?
+  resolvedAt     DateTime?
+  dismissedReason String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status])
+  @@index([alertCode])
+  @@map("alerts")
+}
+
+// ─── FILES ──────────────────────────────────────────────────────────────────
+
+model FileUpload {
+  id               String   @id @default(uuid())
+  filename         String
+  r2Key            String   @unique
+  mimeType         String
+  sizeBytes        Int?
+  latitude         Decimal? @db.Decimal(9, 6)
+  longitude        Decimal? @db.Decimal(9, 6)
+  capturedAt       DateTime?
+  uploadedAt       DateTime @default(now())
+  uploadedBy       String?
+  linkedEntityType String?
+  linkedEntityId   String?
+
+  @@map("file_uploads")
+}
+
+// ─── WEATHER ────────────────────────────────────────────────────────────────
+
+model WeatherRecord {
+  id           String   @id @default(uuid())
+  recordDate   DateTime @unique @db.Date
+  rainfallMm   Decimal? @db.Decimal(6, 2)
+  tempMinC     Decimal? @db.Decimal(5, 2)
+  tempMaxC     Decimal? @db.Decimal(5, 2)
+  humidityPct  Decimal? @db.Decimal(5, 2)
+  et0Mm        Decimal? @db.Decimal(6, 2)
+  windSpeedKmh Decimal? @db.Decimal(6, 2)
+  source       String   @default("open-meteo")
+  createdAt    DateTime @default(now())
+
+  @@map("weather_records")
+}
