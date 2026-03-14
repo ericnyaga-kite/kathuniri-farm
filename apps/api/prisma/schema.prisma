@@ -730,3 +730,84 @@ model WeatherRecord {
 
   @@map("weather_records")
 }
+
+// ─── AI ASSISTANT ────────────────────────────────────────────────────────────
+
+model AiInsight {
+  id              String   @id @default(uuid())
+  generatedDate   DateTime @db.Date
+  category        String   // health | production | financial | tea | rental | crop | staff | weather
+  title           String
+  body            String
+  supportingData  Json?
+  confidence      String   // high | medium | low
+  suggestedAction String?
+  status          String   @default("active") // active | dismissed | acted_on
+  dismissedAt     DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([generatedDate])
+  @@index([status])
+  @@map("ai_insights")
+}
+
+model IngestQueue {
+  id              String   @id @default(uuid())
+  recordType      String   // vet_notebook | ktda_slip | receipt | milk_notebook | work_plan
+  fileUploadId    String
+  status          String   @default("pending") // pending | processing | review | approved | rejected | error
+  rawExtracted    Json?
+  parseConfidence Decimal? @db.Decimal(4, 3)
+  parseError      String?
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  savedRecordIds  String[]
+  source          String   @default("historical_ingest")
+  periodHint      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@map("ingest_queue")
+}
+
+// ─── SMALL STOCK ─────────────────────────────────────────────────────────────
+
+model SmallStock {
+  id          String   @id @default(uuid())
+  name        String?
+  species     String   // sheep | goat | bull | other
+  sex         String   // male | female
+  tagNumber   String?
+  dateOfBirth DateTime? @db.Date
+  status      String   @default("active") // active | sold | dead
+  notes       String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  healthEvents SmallStockHealthEvent[]
+
+  @@map("small_stock")
+}
+
+model SmallStockHealthEvent {
+  id            String   @id @default(uuid())
+  animalId      String
+  eventDate     DateTime @db.Date
+  eventType     String   // illness | vaccination | deworming | routine | injury | breeding
+  conditionName String?
+  symptoms      String?
+  drugName      String?
+  costKes       Decimal? @db.Decimal(10, 2)
+  vetId         String?
+  sourceImageId String?
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  animal SmallStock @relation(fields: [animalId], references: [id])
+
+  @@index([animalId])
+  @@index([eventDate])
+  @@map("small_stock_health_events")
+}

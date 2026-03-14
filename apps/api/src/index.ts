@@ -9,7 +9,9 @@ import { rentalRouter } from './routes/rental'
 import { syncRouter } from './routes/sync'
 import { smsRouter } from './routes/sms'
 import { authRouter } from './routes/auth'
+import { aiRouter } from './routes/ai'
 import { errorHandler } from './middleware/errorHandler'
+import { startInsightsJob } from './jobs/insightsJob'
 
 const app = express()
 const PORT = process.env.PORT ?? 3000
@@ -31,6 +33,7 @@ app.use('/api/staff', staffRouter)
 app.use('/api/rental', rentalRouter)
 app.use('/api/sync', syncRouter)
 app.use('/api/sms', smsRouter)
+app.use('/api/ai', aiRouter)
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
@@ -40,4 +43,5 @@ app.use(errorHandler)
 
 app.listen(PORT, () => {
   console.log(`Kathuniri Farm API running on port ${PORT}`)
+  startInsightsJob()
 })
