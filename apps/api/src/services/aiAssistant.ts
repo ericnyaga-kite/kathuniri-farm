@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { Prisma } from '@prisma/client'
 import { prisma } from '../db/client'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -202,7 +203,7 @@ ${summaryContext}`
       body: insight.body,
       confidence: insight.confidence,
       suggestedAction: insight.suggestedAction ?? null,
-      supportingData: insight.supportingData ?? undefined,
+      supportingData: (insight.supportingData as Prisma.InputJsonValue) ?? Prisma.JsonNull,
     })),
   })
 

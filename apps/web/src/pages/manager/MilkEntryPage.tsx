@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import { db, queueSync } from '../../db/localDb'
+import { useLang } from '../../store/langStore'
 import type { MilkProductionRecord } from '@kathuniri/shared'
 
 const COWS = [
-  { id: 'cow-ndama-1', name: 'Ndama 1' },
-  // add more cows here as the herd grows
+  { id: 'cow-ndama-1', name: 'Ndama I' },
+  { id: 'cow-ndama-2', name: 'Ndama II' },
 ]
 
 type Session = 'AM' | 'PM'
 
 export function MilkEntryPage() {
+  const { t } = useLang()
   const [session, setSession] = useState<Session>('AM')
   const [litres, setLitres] = useState<Record<string, string>>({})
   const [saved, setSaved] = useState(false)
@@ -18,7 +20,6 @@ export function MilkEntryPage() {
   const today = new Date().toISOString().split('T')[0]
 
   function handleLitres(cowId: string, val: string) {
-    // only allow numbers and one decimal point
     if (/^\d*\.?\d*$/.test(val)) {
       setLitres(prev => ({ ...prev, [cowId]: val }))
     }
@@ -60,15 +61,15 @@ export function MilkEntryPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] p-6">
         <div className="text-6xl mb-4">✅</div>
-        <h2 className="text-2xl font-bold text-green-700 mb-2">Imehifadhiwa!</h2>
+        <h2 className="text-2xl font-bold text-green-700 mb-2">{t('Saved!', 'Imehifadhiwa!')}</h2>
         <p className="text-gray-500 text-center mb-8">
-          Rekodi za maziwa zimehifadhiwa. Zitasawazishwa mtandaoni punde.
+          {t('Milk records saved. Will sync when online.', 'Rekodi za maziwa zimehifadhiwa. Zitasawazishwa mtandaoni punde.')}
         </p>
         <button
           className="manager-btn bg-green-700 text-white max-w-xs"
           onClick={() => { setSaved(false); setLitres({}) }}
         >
-          Rekodi Nyingine
+          {t('Enter Another', 'Rekodi Nyingine')}
         </button>
       </div>
     )
@@ -76,9 +77,9 @@ export function MilkEntryPage() {
 
   return (
     <div className="p-4">
-      <h1 className="text-xl font-bold text-green-800 mb-1">Maziwa Leo</h1>
+      <h1 className="text-xl font-bold text-green-800 mb-1">{t("Today's Milk", 'Maziwa Leo')}</h1>
       <p className="text-sm text-gray-500 mb-6">
-        {new Date().toLocaleDateString('sw-KE', { weekday: 'long', day: 'numeric', month: 'long' })}
+        {new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
       </p>
 
       {/* Session toggle */}
@@ -93,7 +94,7 @@ export function MilkEntryPage() {
                 : 'bg-gray-100 text-gray-600'
             }`}
           >
-            {s === 'AM' ? '🌅 Asubuhi' : '🌇 Jioni'}
+            {s === 'AM' ? `🌅 ${t('Morning', 'Asubuhi')}` : `🌇 ${t('Evening', 'Jioni')}`}
           </button>
         ))}
       </div>
@@ -120,13 +121,12 @@ export function MilkEntryPage() {
         ))}
       </div>
 
-      {/* Save button */}
       <button
         onClick={handleSave}
         disabled={saving || Object.values(litres).every(v => !v)}
         className="manager-btn bg-green-700 text-white disabled:opacity-40"
       >
-        {saving ? 'Inahifadhi...' : '✓ Thibitisha'}
+        {saving ? t('Saving...', 'Inahifadhi...') : `✓ ${t('Confirm', 'Thibitisha')}`}
       </button>
     </div>
   )
