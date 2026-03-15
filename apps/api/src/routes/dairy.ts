@@ -45,13 +45,14 @@ dairyRouter.get('/cows', async (_req, res, next) => {
       ) ?? []
 
       const withdrawalActive = activeTreatments.length > 0
-      const withdrawalEndsDate = withdrawalActive
-        ? activeTreatments.reduce<Date | null>((latest, t) =>
-            !latest || (t.withdrawalEndsDate && t.withdrawalEndsDate > latest)
-              ? t.withdrawalEndsDate
-              : latest
-          , null)
-        : null
+      let withdrawalEndsDate: Date | null = null
+      if (withdrawalActive) {
+        for (const tx of activeTreatments) {
+          if (tx.withdrawalEndsDate && (!withdrawalEndsDate || tx.withdrawalEndsDate > withdrawalEndsDate)) {
+            withdrawalEndsDate = tx.withdrawalEndsDate
+          }
+        }
+      }
 
       return {
         id:                   cow.id,
