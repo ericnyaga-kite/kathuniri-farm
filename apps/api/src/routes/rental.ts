@@ -311,22 +311,20 @@ rentalRouter.get('/rooms/:id/payments', async (req, res, next) => {
       return
     }
 
-    type PaymentWhere = Parameters<typeof prisma.rentPayment.findMany>[0] extends { where?: infer W } ? W : never
-    const where: PaymentWhere = { roomId: id }
-
+    const whereClause: Record<string, unknown> = { roomId: id }
     let useLimit = true
 
     if (year) {
-      where.periodYear = parseInt(year)
+      whereClause.periodYear = parseInt(year)
       useLimit = false
     }
     if (month) {
-      where.periodMonth = parseInt(month)
+      whereClause.periodMonth = parseInt(month)
       useLimit = false
     }
 
     const payments = await prisma.rentPayment.findMany({
-      where,
+      where: whereClause as never,
       orderBy: { paymentDate: 'desc' },
       ...(useLimit ? { take: 12 } : {}),
     })

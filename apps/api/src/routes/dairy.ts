@@ -119,15 +119,15 @@ dairyRouter.get('/milk/summary', async (req, res, next) => {
       if (r.withdrawalActive) withdrawalLitres += litres
 
       // Cow breakdown
-      const existing = cowMap.get(r.cowId)
+      const existing = cowMap.get(r.cowId ?? '')
       if (existing) {
         existing.totalLitres += litres
         if (r.session === 'morning') existing.morningLitres += litres
         if (r.session === 'evening') existing.eveningLitres += litres
       } else {
-        cowMap.set(r.cowId, {
-          cowId:         r.cowId,
-          cowName:       r.cow.name,
+        cowMap.set(r.cowId ?? '', {
+          cowId:         r.cowId ?? '',
+          cowName:       r.cow?.name ?? 'Unknown',
           totalLitres:   litres,
           morningLitres: r.session === 'morning' ? litres : 0,
           eveningLitres: r.session === 'evening' ? litres : 0,

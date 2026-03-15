@@ -203,7 +203,7 @@ ${summaryContext}`
       body: insight.body,
       confidence: insight.confidence,
       suggestedAction: insight.suggestedAction ?? null,
-      supportingData: (insight.supportingData as Prisma.InputJsonValue) ?? Prisma.JsonNull,
+      supportingData: (insight.supportingData ?? undefined) as never,
     })),
   })
 
