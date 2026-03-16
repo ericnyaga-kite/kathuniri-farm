@@ -17,11 +17,10 @@ const anthropic = new Anthropic()
 //
 // Notes:
 // - today_kg = kg delivered TODAY (not a running cumulative)
-// - Letters (A, B, C) = queue/plot allocations at each centre
+// - Letters (A, B, C) after a centre name are SUB-SECTOR suffixes, not queue codes
+//   e.g. "Mukinduriri A 56 B 9.4" = sub-sector "Mukinduriri A": 56 kg, "Mukinduriri B": 9.4 kg
 // - Cash = positive float, Negative = negative float
 // - Float can be absent (treat as 0)
-// - Centre name alone without a letter means all kg went there unallocated
-// - Multiple centres can appear in one message
 
 const SYSTEM_PROMPT = `You parse daily green leaf tea SMS messages from Cathy Tea (the picking supervisor) for Kathuniri Farm, Embu County, Kenya. KTDA Factory F064.
 
@@ -33,30 +32,45 @@ SINGLE ACCOUNT:
 MULTI-ACCOUNT (accounts separated by "(" character):
 [acct1]-[kg1]([acct2]-[kg2]([acctN]-[kgN]-[grand_total_kg]-[casual_kg]-[casual_pay_kes] [Cash|Negative] [float_kes] [areas...]
 
+## CRITICAL: HOW TO READ CENTRE LETTERS
+
+The letter after a centre name (A, B, C) is part of the sub-sector name — it is NOT a separate field.
+When you see "Mukinduriri A 56 B 9.4" you must read it as:
+  - Sub-sector "Mukinduriri A": 56 kg
+  - Sub-sector "Mukinduriri B": 9.4 kg  ← "B" continues the same parent "Mukinduriri"
+
+When you see "Kathuniri C 56 A 42 B 40.7":
+  - Sub-sector "Kathuniri C": 56 kg
+  - Sub-sector "Kathuniri A": 42 kg
+  - Sub-sector "Kathuniri B": 40.7 kg
+
+When a new different centre name appears, it starts a new parent area:
+  "Kamwangi A 47 B 74 Mucucari A 26.2"
+  - Sub-sector "Kamwangi A": 47 kg
+  - Sub-sector "Kamwangi B": 74 kg
+  - Sub-sector "Mucucari A": 26.2 kg  ← "Mucucari" is a different parent
+
 ## REAL EXAMPLES
 
-Single, one centre, two letters:
-  247-65.4-44.5-625 Cash 1540 Mukinduriri A 56 B 9.4
-  → account 247, today 65.4 kg (=56+9.4), casual 44.5 kg, casual pay KES 625, float +1540
-  → Mukinduriri: A=56 kg, B=9.4 kg
+247-65.4-44.5-625 Cash 1540 Mukinduriri A 56 B 9.4
+→ account 247, today 65.4 kg, casual 44.5 kg, pay KES 625, float +1540
+→ centres: [{"name":"Mukinduriri A","kg":56}, {"name":"Mukinduriri B","kg":9.4}]
 
-Single, one centre, three letters:
-  244-138.7-121-1695 Negative 660 Kathuniri C 56 A 42 B 40.7
-  → account 244, today 138.7 kg, casual 121 kg, pay KES 1695, float -660
-  → Kathuniri: C=56 kg, A=42 kg, B=40.7 kg
+244-138.7-121-1695 Negative 660 Kathuniri C 56 A 42 B 40.7
+→ account 244, today 138.7 kg, casual 121 kg, pay KES 1695, float -660
+→ centres: [{"name":"Kathuniri C","kg":56}, {"name":"Kathuniri A","kg":42}, {"name":"Kathuniri B","kg":40.7}]
 
-Single, two centres:
-  244-147.2-122-1710 Negative 1210 Kamwangi A 47 B 74 Mucucari A 26.2
-  → Kamwangi: A=47, B=74. Mucucari: A=26.2. Total=147.2 ✓
+244-147.2-122-1710 Negative 1210 Kamwangi A 47 B 74 Mucucari A 26.2
+→ centres: [{"name":"Kamwangi A","kg":47}, {"name":"Kamwangi B","kg":74}, {"name":"Mucucari A","kg":26.2}]
 
-Single, centre name only (no letter):
-  244-32.5-21.5-300 Negative 960 Shule 32.5
-  → Shule: 32.5 kg (no letter breakdown)
+244-32.5-21.5-300 Negative 960 Shule 32.5
+→ centres: [{"name":"Shule","kg":32.5}]
 
-Multi-account, three accounts:
-  16-89.1(164-42.2(499-34.9-166.2-147.5-2065 Negative 2165 Mucucari B 10 Mutarakwe A 61 B 70 Mukinduriri A 25.
-  → account 16: 89.1 kg, account 164: 42.2 kg, account 499: 34.9 kg
-  → grand total: 166.2 kg (=89.1+42.2+34.9), casual 147.5 kg, pay KES 2065, float -2165
+16-89.1(164-42.2(499-34.9-166.2-147.5-2065 Negative 2165 Mucucari B 10 Mutarakwe A 61 B 70 Mukinduriri A 25.
+→ account 16: 89.1 kg, account 164: 42.2 kg, account 499: 34.9 kg, grand total 166.2 kg
+→ casual 147.5 kg, pay KES 2065, float -2165
+→ centres shared: [{"name":"Mucucari B","kg":10}, {"name":"Mutarakwe A","kg":61}, {"name":"Mutarakwe B","kg":70}, {"name":"Mukinduriri A","kg":25}]
+  (In multi-account, assign all centres to each account — the kg breakdown per account is in the account totals only)
 
 ## KNOWN KTDA ACCOUNTS
 - 7   → TR0030007 Mbogo Muganbi         (1,000 bushes)
@@ -67,15 +81,14 @@ Multi-account, three accounts:
 - 404 → TR0030404 Lilian Muthoni Nyaga  (1,991 bushes)
 - 499 → TR0030499 Sandra Gatuiri Gikundi (1,000 bushes)
 
-## KNOWN COLLECTION CENTRES
-Mukinduriri, Kathuniri, Kathangariri, Kamwangi, Mucucari, Mutarakwe, Shule, Newtea
+## KNOWN SUB-SECTOR NAMES (use exact spelling)
+Mucucari A, Mucucari B, Kathuniri A, Kathuniri B, Kathuniri C, Shule, New Tea,
+Mukinduriri A, Mukinduriri B, Mutarakwe A, Mutarakwe B, Kamwangi A, Kamwangi B
 
 ## RULES
-- today_kg is THIS DAY's delivery only — not a monthly cumulative
-- Verify: sum of all centre kg allocations should equal today_kg for that account
+- today_kg is THIS DAY's delivery only
 - Cash = positive float, Negative = negative float, absent = 0
-- account_code trailing digits map to TR number (07 → TR0030007, 16 → TR0030016)
-- In multi-account: casual_kg and float are SHARED across all accounts in the message
+- In multi-account: casual_kg and float are SHARED (same value on every account)
 
 Respond ONLY with valid JSON, no markdown fences:
 {
@@ -89,15 +102,9 @@ Respond ONLY with valid JSON, no markdown fences:
       "casualPayKes": 1695,
       "supervisorFloatKes": -660,
       "centres": [
-        {
-          "name": "Kathuniri",
-          "totalKg": 138.7,
-          "allocations": [
-            { "letter": "C", "kg": 56 },
-            { "letter": "A", "kg": 42 },
-            { "letter": "B", "kg": 40.7 }
-          ]
-        }
+        { "name": "Kathuniri C", "kg": 56 },
+        { "name": "Kathuniri A", "kg": 42 },
+        { "name": "Kathuniri B", "kg": 40.7 }
       ]
     }
   ],
@@ -119,11 +126,7 @@ export async function parseTeaSms(
     casualKg: number
     casualPayKes: number
     supervisorFloatKes: number
-    centres: Array<{
-      name: string
-      totalKg: number
-      allocations: Array<{ letter: string; kg: number }>
-    }>
+    centres: Array<{ name: string; kg: number }>
   }
 
   let parsed: {
@@ -151,53 +154,72 @@ export async function parseTeaSms(
   parsed = JSON.parse(jsonMatch[0])
 
   const allCentres = await prisma.collectionCentre.findMany({ where: { active: true } })
+  const isMultiAccount = parsed.accounts.length > 1
 
   for (const acct of parsed.accounts) {
     const ktdaAccount = await prisma.ktdaAccount.findUnique({
       where: { accountCode: acct.accountCode },
     })
 
-    for (const centre of acct.centres) {
-      // Match centre by canonical name or alternate spellings
-      const centreRecord = allCentres.find(c =>
-        c.canonicalName.toLowerCase() === centre.name.toLowerCase() ||
-        c.alternateSpellings.some(s => s.toLowerCase() === centre.name.toLowerCase())
-      )
-
+    if (isMultiAccount) {
+      // Multi-account SMS: centres are farm-wide totals shared across all accounts.
+      // Create ONE delivery per account using the account's own individual kg total.
+      // Centre names stored as a comma-joined summary — we can't attribute farm-wide
+      // centre totals to individual accounts.
+      const centreNames = acct.centres.map(c => c.name).join(', ')
       const delivery = await prisma.teaSmsDelivery.create({
         data: {
           smsRecordId,
-          deliveryDate: new Date(parsed.deliveryDate),
-          centreId:       centreRecord?.id ?? undefined,
-          centreRawName:  centre.name,
-          todayKg:        centre.totalKg,
-          cumulativeKg:   null,           // not in SMS — calculated by summing daily records
-          casualKg:       acct.casualKg,
-          casualPayKes:   acct.casualPayKes,
+          deliveryDate:    new Date(parsed.deliveryDate),
+          centreId:        undefined,
+          centreRawName:   centreNames,
+          todayKg:         acct.todayKg,
+          cumulativeKg:    null,
+          casualKg:        acct.casualKg,
+          casualPayKes:    acct.casualPayKes,
           supervisorFloat: acct.supervisorFloatKes,
           parseConfidence: parsed.confidence,
         },
       })
-
-      // Create per-letter allocations
       if (ktdaAccount) {
-        if (centre.allocations.length > 0) {
-          await prisma.teaSmsAllocation.createMany({
-            data: centre.allocations.map(a => ({
-              deliveryId:   delivery.id,
-              accountLetter: a.letter,
-              ktdaAccountId: ktdaAccount.id,
-              kgAllocated:   a.kg,
-            })),
-          })
-        } else {
-          // No letter breakdown — single allocation for the full centre kg
+        await prisma.teaSmsAllocation.create({
+          data: {
+            deliveryId:    delivery.id,
+            accountCode:   acct.smsCode,
+            ktdaAccountId: ktdaAccount.id,
+            kgAllocated:   acct.todayKg,
+          },
+        })
+      }
+    } else {
+      // Single-account SMS: one delivery per sub-sector centre so we capture the
+      // per-centre breakdown.
+      for (const centre of acct.centres) {
+        const centreRecord = allCentres.find(c =>
+          c.canonicalName.toLowerCase() === centre.name.toLowerCase() ||
+          c.alternateSpellings.some(s => s.toLowerCase() === centre.name.toLowerCase())
+        )
+        const delivery = await prisma.teaSmsDelivery.create({
+          data: {
+            smsRecordId,
+            deliveryDate:    new Date(parsed.deliveryDate),
+            centreId:        centreRecord?.id ?? undefined,
+            centreRawName:   centre.name,
+            todayKg:         centre.kg,
+            cumulativeKg:    null,
+            casualKg:        acct.casualKg,
+            casualPayKes:    acct.casualPayKes,
+            supervisorFloat: acct.supervisorFloatKes,
+            parseConfidence: parsed.confidence,
+          },
+        })
+        if (ktdaAccount) {
           await prisma.teaSmsAllocation.create({
             data: {
               deliveryId:    delivery.id,
-              accountLetter: 'A',
+              accountCode:   acct.smsCode,
               ktdaAccountId: ktdaAccount.id,
-              kgAllocated:   centre.totalKg,
+              kgAllocated:   centre.kg,
             },
           })
         }

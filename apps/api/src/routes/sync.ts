@@ -158,15 +158,13 @@ async function applyPickingSession(
     return
   }
 
-  // Resolve centreId — seed uses canonical name as id slug 'kathangariri'
-  // but DB uses UUID. Look up by id first, fall back to canonical name.
+  // centreId from the PWA is the sector's canonicalName (e.g. 'Kathuniri A').
+  // Look it up to get the DB uuid.
   let centreId = String(p.centreId)
-  if (centreId === 'kathangariri') {
-    const centre = await prisma.collectionCentre.findFirst({
-      where: { canonicalName: 'Kathangariri' },
-    })
-    if (centre) centreId = centre.id
-  }
+  const centre = await prisma.collectionCentre.findFirst({
+    where: { canonicalName: { equals: centreId, mode: 'insensitive' } },
+  })
+  if (centre) centreId = centre.id
 
   await prisma.pickingSession.upsert({
     where: { id },

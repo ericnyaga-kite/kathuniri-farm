@@ -4,55 +4,65 @@ import { parseTeaSms } from '../services/teaSmsParser'
 
 export const smsRouter = Router()
 
-const CATHY_PHONE = '0706484749'   // Cathy Tea — the only authorised sender for tea SMS
+// ---------------------------------------------------------------------------
+// SMS sender registry — add new sources here.
+// Key: normalised phone (07xx format). Value: parser function.
+// ---------------------------------------------------------------------------
+type SmsParser = (raw: string, recordId: string, ts: Date) => Promise<void>
 
+const SENDER_REGISTRY: Record<string, SmsParser> = {
+  '0706484749': parseTeaSms,   // Cathy Tea — daily green leaf picking
+  // '0712345678': parseMpesa, // example: add M-PESA notifications
+}
+
+function normPhone(raw: string): string {
+  return raw.replace(/\s+/g, '').replace(/^\+254/, '0').replace(/^254/, '0')
+}
+
+async function handleIncoming(sender: string, message: string, receivedAt: Date) {
+  const phone = normPhone(sender)
+
+  const parser = SENDER_REGISTRY[phone]
+  if (!parser) {
+    // Not a known sender — discard silently
+    return
+  }
+
+  const record = await prisma.teaSmsRecord.create({
+    data: { receivedAt, senderPhone: phone, rawSms: message, parsed: false },
+  })
+
+  // Parse in background — respond fast to the Android app
+  parser(message, record.id, receivedAt).catch(err => {
+    console.error(`[SMS] Parse failed for ${phone}:`, err)
+    prisma.teaSmsRecord.update({
+      where: { id: record.id },
+      data: { parseError: String(err) },
+    }).catch(() => {})
+  })
+}
+
+// ---------------------------------------------------------------------------
 // POST /api/sms
 // Called by the Kathuniri SMS Utility Android app on the farm manager's phone.
 // Body: { secret, sender, message, receivedAt? }
+// ---------------------------------------------------------------------------
 smsRouter.post('/', async (req, res, next) => {
   try {
     const { secret, sender, message, receivedAt } = req.body as {
-      secret: string
-      sender: string
-      message: string
-      receivedAt?: string
+      secret: string; sender: string; message: string; receivedAt?: string
     }
 
     if (secret !== process.env.SMS_UTILITY_SECRET) {
       return res.status(401).json({ error: 'Unauthorised' })
     }
-
     if (!sender || !message) {
       return res.status(400).json({ error: 'sender and message required' })
     }
 
-    const normalised = sender.replace(/\s+/g, '').replace(/^\+254/, '0').replace(/^254/, '0')
     const ts = receivedAt ? new Date(receivedAt) : new Date()
-
-    // Store raw SMS
-    const record = await prisma.teaSmsRecord.create({
-      data: {
-        receivedAt: ts,
-        senderPhone: normalised,
-        rawSms: message,
-        parsed: false,
-      },
-    })
-
-    // Identify and parse in background (don't await — respond fast)
-    if (normalised === CATHY_PHONE) {
-      parseTeaSms(message, record.id, ts).catch(err => {
-        console.error('[SMS] Tea SMS parse failed:', err)
-        prisma.teaSmsRecord.update({
-          where: { id: record.id },
-          data: { parseError: String(err) },
-        }).catch(() => {})
-      })
-    } else {
-      console.log(`[SMS] Unknown sender ${normalised} — stored, not parsed`)
-    }
-
-    return res.json({ received: true, id: record.id })
+    await handleIncoming(sender, message, ts)
+    return res.json({ received: true })
   } catch (err) {
     next(err)
   }
@@ -81,7 +91,7 @@ smsRouter.post('/bulk', async (req, res, next) => {
 
     for (const msg of messages) {
       try {
-        const normalised = msg.sender.replace(/\s+/g, '').replace(/^\+254/, '0').replace(/^254/, '0')
+        const phone = normPhone(msg.sender)
         const ts = new Date(msg.receivedAt)
         const dayStart = new Date(ts); dayStart.setHours(0, 0, 0, 0)
         const dayEnd   = new Date(ts); dayEnd.setHours(23, 59, 59, 999)
@@ -89,32 +99,19 @@ smsRouter.post('/bulk', async (req, res, next) => {
         // Skip if already stored (same sender, same message text, same day)
         const existing = await prisma.teaSmsRecord.findFirst({
           where: {
-            senderPhone: normalised,
+            senderPhone: phone,
             rawSms: msg.message,
             receivedAt: { gte: dayStart, lte: dayEnd },
           },
         })
 
         if (existing) {
-          results.push({ receivedAt: msg.receivedAt, sender: normalised, status: 'duplicate', id: existing.id })
+          results.push({ receivedAt: msg.receivedAt, sender: phone, status: 'duplicate', id: existing.id })
           continue
         }
 
-        const record = await prisma.teaSmsRecord.create({
-          data: { receivedAt: ts, senderPhone: normalised, rawSms: msg.message, parsed: false },
-        })
-
-        if (normalised === CATHY_PHONE) {
-          parseTeaSms(msg.message, record.id, ts).catch(err => {
-            console.error('[SMS bulk] Tea SMS parse failed:', err)
-            prisma.teaSmsRecord.update({
-              where: { id: record.id },
-              data: { parseError: String(err) },
-            }).catch(() => {})
-          })
-        }
-
-        results.push({ receivedAt: msg.receivedAt, sender: normalised, status: 'stored', id: record.id })
+        await handleIncoming(msg.sender, msg.message, ts)
+        results.push({ receivedAt: msg.receivedAt, sender: phone, status: 'stored' })
       } catch (err) {
         results.push({ receivedAt: msg.receivedAt, sender: msg.sender, status: 'error', error: String(err) })
       }

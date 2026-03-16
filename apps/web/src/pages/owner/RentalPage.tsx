@@ -135,12 +135,90 @@ function PaymentForm({ room, year, month, onSaved, onCancel, t }: {
   )
 }
 
+function TenantEditForm({ room, onSaved, onCancel, t }: {
+  room: Room
+  onSaved: () => void; onCancel: () => void
+  t: (en: string, sw: string) => string
+}) {
+  const [tenantName, setTenantName] = useState(room.tenantName ?? '')
+  const [tenantPhone, setTenantPhone] = useState(room.tenantPhone ?? '')
+  const [monthlyRentKes, setMonthlyRentKes] = useState(String(room.monthlyRentKes ?? ''))
+  const [occupancyStatus, setOccupancyStatus] = useState(room.occupancyStatus)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true); setError(null)
+    try {
+      const r = await fetch(`${API}/api/rental/rooms/${room.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantName: tenantName || null,
+          tenantPhone: tenantPhone || null,
+          monthlyRentKes: parseFloat(monthlyRentKes) || null,
+          occupancyStatus,
+        }),
+      })
+      if (!r.ok) throw new Error('Failed')
+      onSaved()
+    } catch { setError(t('Failed to save', 'Imeshindwa kuhifadhi')) }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <form onSubmit={submit} className="bg-blue-50 rounded-2xl p-4 space-y-3 mt-3">
+      <p className="font-semibold text-blue-800 text-sm">{t('Edit Tenant', 'Hariri Mpangaji')}</p>
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      <div>
+        <label className="text-xs text-gray-500">{t('Tenant Name', 'Jina la Mpangaji')}</label>
+        <input type="text" value={tenantName} onChange={e => setTenantName(e.target.value)}
+          placeholder={t('e.g. John Kamau', 'mfano: John Kamau')}
+          className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-xs text-gray-500">{t('Phone', 'Simu')}</label>
+          <input type="tel" value={tenantPhone} onChange={e => setTenantPhone(e.target.value)}
+            placeholder="07xx..."
+            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500">{t('Rent (KES/mo)', 'Kodi (KES/mwezi)')}</label>
+          <input type="number" value={monthlyRentKes} onChange={e => setMonthlyRentKes(e.target.value)}
+            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" />
+        </div>
+      </div>
+      <div>
+        <label className="text-xs text-gray-500">{t('Status', 'Hali')}</label>
+        <select value={occupancyStatus} onChange={e => setOccupancyStatus(e.target.value)}
+          className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm">
+          <option value="occupied">{t('Occupied', 'Imekaliwa')}</option>
+          <option value="vacant">{t('Vacant', 'Wazi')}</option>
+        </select>
+      </div>
+      <div className="flex gap-2 pt-1">
+        <button type="submit" disabled={saving}
+          className="flex-1 bg-blue-700 text-white rounded-xl py-2 text-sm font-semibold disabled:opacity-50">
+          {saving ? t('Saving...', 'Inahifadhi...') : t('Save', 'Hifadhi')}
+        </button>
+        <button type="button" onClick={onCancel}
+          className="flex-1 border border-gray-300 rounded-xl py-2 text-sm text-gray-600">
+          {t('Cancel', 'Ghairi')}
+        </button>
+      </div>
+    </form>
+  )
+}
+
 function RoomCard({ room, year, month, onRefresh, t }: {
   room: Room; year: number; month: number
   onRefresh: () => void
   t: (en: string, sw: string) => string
 }) {
   const [showPaymentForm, setShowPaymentForm] = useState(false)
+  const [showEditForm, setShowEditForm] = useState(false)
 
   const latestElec = room.electricityReadings[0]
   const thisMonthPmt = room.rentPayments.find(p => p.periodMonth === month && p.periodYear === year)
@@ -157,12 +235,16 @@ function RoomCard({ room, year, month, onRefresh, t }: {
             <p className="text-xs text-gray-400">KES {Number(room.monthlyRentKes).toLocaleString()}/{t('mo', 'mwezi')}</p>
           )}
         </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => { setShowEditForm(v => !v); setShowPaymentForm(false) }}
+            className="text-xs text-blue-600 underline">{t('Edit', 'Hariri')}</button>
         {thisMonthPmt
           ? <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">{t('Paid', 'Imelipwa')} ✓</span>
           : room.occupancyStatus === 'occupied'
             ? <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold">{t('Unpaid', 'Halijalipiwa')}</span>
             : <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-semibold">{t('Vacant', 'Wazi')}</span>
         }
+        </div>
       </div>
 
       {latestElec && (
@@ -196,6 +278,15 @@ function RoomCard({ room, year, month, onRefresh, t }: {
           room={room} year={year} month={month}
           onSaved={() => { setShowPaymentForm(false); onRefresh() }}
           onCancel={() => setShowPaymentForm(false)}
+          t={t}
+        />
+      )}
+
+      {showEditForm && (
+        <TenantEditForm
+          room={room}
+          onSaved={() => { setShowEditForm(false); onRefresh() }}
+          onCancel={() => setShowEditForm(false)}
           t={t}
         />
       )}

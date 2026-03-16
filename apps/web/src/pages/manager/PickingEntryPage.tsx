@@ -3,8 +3,17 @@ import { db, queueSync } from '../../db/localDb'
 import { useLang } from '../../store/langStore'
 import type { PickingSession, PickerRecord } from '@kathuniri/shared'
 
-const CENTRE_ID = 'kathangariri'
 const RATE_PER_KG = 14
+
+const SECTORS = [
+  'Mucucari A', 'Mucucari B',
+  'Kathuniri A', 'Kathuniri B', 'Kathuniri C',
+  'Shule',
+  'New Tea',
+  'Mukinduriri A', 'Mukinduriri B',
+  'Mutarakwe A',  'Mutarakwe B',
+  'Kamwangi A',   'Kamwangi B',
+]
 
 interface PickerRow {
   name: string
@@ -19,6 +28,7 @@ export function PickingEntryPage() {
   const { t } = useLang()
   const today = new Date().toISOString().split('T')[0]
   const [date, setDate] = useState(today)
+  const [sector, setSector] = useState('')
   const [pickers, setPickers] = useState<PickerRow[]>([emptyRow(), emptyRow()])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -42,7 +52,7 @@ export function PickingEntryPage() {
   const totalPay = totalKg * RATE_PER_KG
 
   async function handleSave() {
-    if (validRows.length === 0) return
+    if (validRows.length === 0 || !sector) return
     setSaving(true)
     try {
       const sessionId = crypto.randomUUID()
@@ -50,7 +60,7 @@ export function PickingEntryPage() {
       const session: PickingSession = {
         id: sessionId,
         sessionDate: date,
-        centreId: CENTRE_ID,
+        centreId: sector,
         pickerTotalKg: totalKg,
         reconciliationStatus: 'pending',
       }
@@ -95,6 +105,7 @@ export function PickingEntryPage() {
         <div className="text-6xl mb-4">✅</div>
         <h2 className="text-2xl font-bold text-green-700 mb-2">{t('Saved!', 'Imehifadhiwa!')}</h2>
         <div className="bg-green-50 rounded-2xl p-4 mb-6 w-full max-w-xs text-center">
+          <p className="text-gray-400 text-xs mb-2">{sector}</p>
           <p className="text-gray-600 text-sm mb-1">{t('Total tea', 'Jumla ya chai')}</p>
           <p className="text-3xl font-bold text-green-800">{totalKg.toFixed(1)} kg</p>
           <p className="text-gray-500 text-sm mt-2">{t('Picker pay', 'Malipo ya wavunaji')}</p>
@@ -105,7 +116,7 @@ export function PickingEntryPage() {
         </p>
         <button
           className="manager-btn bg-green-700 text-white max-w-xs"
-          onClick={() => { setSaved(false); setPickers([emptyRow(), emptyRow()]) }}
+          onClick={() => { setSaved(false); setSector(''); setPickers([emptyRow(), emptyRow()]) }}
         >
           {t('Enter Another', 'Rekodi Nyingine')}
         </button>
@@ -118,7 +129,7 @@ export function PickingEntryPage() {
       <h1 className="text-xl font-bold text-green-800 mb-1">{t('Tea — Picking', 'Chai — Kuokota')}</h1>
 
       {/* Date */}
-      <div className="mb-5">
+      <div className="mb-4">
         <label className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-1 block">
           {t('Date', 'Tarehe')}
         </label>
@@ -129,6 +140,21 @@ export function PickingEntryPage() {
           onChange={e => setDate(e.target.value)}
           className="w-full border border-gray-300 rounded-xl px-4 py-3 text-base"
         />
+      </div>
+
+      {/* Sector */}
+      <div className="mb-5">
+        <label className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-1 block">
+          {t('Sector', 'Sekta')}
+        </label>
+        <select
+          value={sector}
+          onChange={e => setSector(e.target.value)}
+          className="w-full border border-gray-300 rounded-xl px-4 py-3 text-base bg-white"
+        >
+          <option value="">{t('— Select sector —', '— Chagua sekta —')}</option>
+          {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
       </div>
 
       {/* Pickers */}
@@ -194,7 +220,7 @@ export function PickingEntryPage() {
 
       <button
         onClick={handleSave}
-        disabled={saving || validRows.length === 0}
+        disabled={saving || validRows.length === 0 || !sector}
         className="manager-btn bg-green-700 text-white disabled:opacity-40 mt-2"
       >
         {saving ? t('Saving...', 'Inahifadhi...') : `✓ ${t('Confirm', 'Thibitisha')}`}

@@ -32,6 +32,15 @@ interface SmsRecord {
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
 
+const KNOWN_SECTORS = [
+  'Mucucari A', 'Mucucari B',
+  'Kathuniri A', 'Kathuniri B', 'Kathuniri C',
+  'Shule', 'New Tea',
+  'Mukinduriri A', 'Mukinduriri B',
+  'Mutarakwe A', 'Mutarakwe B',
+  'Kamwangi A', 'Kamwangi B',
+]
+
 function EditDeliveryModal({
   delivery,
   rawSms,
@@ -112,7 +121,6 @@ function EditDeliveryModal({
             { key: 'casualKg',        label: t('Casual kg', 'Kg za Casual'),         type: 'number' },
             { key: 'casualPayKes',    label: t('Casual pay (KES)', 'Malipo Casual'), type: 'number' },
             { key: 'supervisorFloat', label: t('Supervisor float (KES)', 'Float'),   type: 'number' },
-            { key: 'centreRawName',   label: t('Centre', 'Kituo'),                   type: 'text' },
           ].map(({ key, label, type }) => (
             <div key={key}>
               <label className="text-xs text-gray-500 font-semibold block mb-1">{label}</label>
@@ -124,6 +132,28 @@ function EditDeliveryModal({
               />
             </div>
           ))}
+
+          {/* Sector — dropdown so owner picks the correct sub-sector */}
+          <div>
+            <label className="text-xs text-gray-500 font-semibold block mb-1">
+              {t('Sector', 'Sekta')}
+              {!delivery.centre && (
+                <span className="ml-2 text-amber-600 font-bold">⚠ {t('Unresolved — please select', 'Haijulikani — tafadhali chagua')}</span>
+              )}
+            </label>
+            <select
+              value={form.centreRawName}
+              onChange={e => field('centreRawName', e.target.value)}
+              className={`w-full border rounded-xl px-3 py-2 text-base bg-white ${
+                !delivery.centre ? 'border-amber-400 ring-1 ring-amber-300' : 'border-gray-300'
+              }`}
+            >
+              <option value="">{t('— Select sector —', '— Chagua sekta —')}</option>
+              {KNOWN_SECTORS.map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
 
           <div>
             <label className="text-xs text-gray-500 font-semibold block mb-1">
@@ -239,7 +269,14 @@ export function TeaRecordsPage() {
                       <span className="text-blue-500 ml-auto">{t('Corrected', 'Imerekebishwa')}</span>
                     )}
                   </div>
-                  <p className="text-xs text-green-600 mt-1">{t('Tap to edit →', 'Gonga kuhariri →')}</p>
+                  {!d.centre && !d.centreRawName?.includes(',') && (
+                    <p className="text-xs text-amber-600 font-semibold mt-1">
+                      ⚠ {t('Sector unresolved — tap to fix', 'Sekta haijulikani — gonga kurekebisha')}
+                    </p>
+                  )}
+                  {d.centre && (
+                    <p className="text-xs text-green-600 mt-1">{t('Tap to edit →', 'Gonga kuhariri →')}</p>
+                  )}
                 </button>
               ))
             ) : (

@@ -238,7 +238,7 @@ teaRouter.post('/sms/deliveries', async (req, res, next) => {
         parseConfidence: 1.0,
         ...(ktdaAccountId && {
           allocations: {
-            create: { accountLetter: 'A', ktdaAccountId, kgAllocated: todayKg },
+            create: { accountCode: '-', ktdaAccountId, kgAllocated: todayKg },
           },
         }),
       },
@@ -537,7 +537,7 @@ teaRouter.get('/reconciliation', async (req, res, next) => {
       }
       const centreEntry = entry.centres.get(centreName)!
       for (const alloc of d.allocations) {
-        const letter = alloc.accountLetter
+        const letter = alloc.accountCode
         centreEntry.letters.set(letter, (centreEntry.letters.get(letter) ?? 0) + Number(alloc.kgAllocated))
       }
     }
