@@ -149,10 +149,9 @@ function DayCard({ day, t }: { day: DayEntry; t: (en: string, sw: string) => str
 }
 
 function AddTopUpForm({
-  year, month,
   onSaved, onCancel, t,
 }: {
-  year: number; month: number
+  year?: number; month?: number
   onSaved: () => void
   onCancel: () => void
   t: (en: string, sw: string) => string
