@@ -23,14 +23,15 @@ async function handleIncoming(sender: string, message: string, receivedAt: Date)
   const phone = normPhone(sender)
 
   const parser = SENDER_REGISTRY[phone]
-  if (!parser) {
-    // Not a known sender — discard silently
-    return
-  }
 
   const record = await prisma.teaSmsRecord.create({
-    data: { receivedAt, senderPhone: phone, rawSms: message, parsed: false },
+    data: { receivedAt, senderPhone: phone, rawSms: message, parsed: parser ? false : true },
   })
+
+  if (!parser) {
+    // Known to the app (passed the phone-side filter) but no parser configured yet — stored raw
+    return
+  }
 
   // Parse in background — respond fast to the Android app
   parser(message, record.id, receivedAt).catch(err => {
