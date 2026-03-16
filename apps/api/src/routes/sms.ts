@@ -24,7 +24,10 @@ async function handleIncoming(sender: string, message: string, receivedAt: Date)
 
   const parser = SENDER_REGISTRY[phone]
   if (!parser) {
-    // No parser for this sender — discard. Add to SENDER_REGISTRY when ready.
+    // No parser configured — park in holding for inspection/testing
+    await prisma.smsHoldingRecord.create({
+      data: { receivedAt, senderPhone: phone, rawSms: message },
+    })
     return
   }
 
@@ -129,13 +132,26 @@ smsRouter.post('/bulk', async (req, res, next) => {
   }
 })
 
-// GET /api/sms/recent — last 20 SMS records (owner use)
+// GET /api/sms/recent — last 20 parsed SMS records (owner use)
 smsRouter.get('/recent', async (_req, res, next) => {
   try {
     const records = await prisma.teaSmsRecord.findMany({
       orderBy: { receivedAt: 'desc' },
       take: 20,
       include: { deliveries: { include: { allocations: true } } },
+    })
+    res.json(records)
+  } catch (err) {
+    next(err)
+  }
+})
+
+// GET /api/sms/holding — messages received but no parser configured
+smsRouter.get('/holding', async (_req, res, next) => {
+  try {
+    const records = await prisma.smsHoldingRecord.findMany({
+      orderBy: { receivedAt: 'desc' },
+      take: 50,
     })
     res.json(records)
   } catch (err) {

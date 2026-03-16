@@ -101,6 +101,19 @@ model PickerRecord {
   @@map("picker_records")
 }
 
+// Stores SMS from senders that reached the server but have no parser configured.
+// Use this to inspect test messages or new data sources before wiring up a parser.
+model SmsHoldingRecord {
+  id          String   @id @default(uuid())
+  receivedAt  DateTime
+  senderPhone String
+  rawSms      String
+  note        String?  // e.g. "test", future parser name
+  createdAt   DateTime @default(now())
+
+  @@map("sms_holding_records")
+}
+
 model TeaSmsRecord {
   id          String   @id @default(uuid())
   receivedAt  DateTime
@@ -139,7 +152,7 @@ model TeaSmsDelivery {
 model TeaSmsAllocation {
   id            String  @id @default(uuid())
   deliveryId    String
-  accountLetter String  @db.Char(1)
+  accountCode   String  // SMS code, e.g. "7", "16", "164"
   ktdaAccountId String?
   kgAllocated   Decimal @db.Decimal(8, 2)
 
