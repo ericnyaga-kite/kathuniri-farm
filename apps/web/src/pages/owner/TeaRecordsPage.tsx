@@ -183,8 +183,57 @@ function EditDeliveryModal({
   )
 }
 
+interface HoldingRecord {
+  id: string
+  receivedAt: string
+  senderPhone: string
+  rawSms: string
+  note: string | null
+}
+
+function HoldingTab({ t }: { t: (en: string, sw: string) => string }) {
+  const [records, setRecords] = useState<HoldingRecord[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch(`${API}/api/sms/holding`)
+      .then(r => r.json())
+      .then(setRecords)
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) return <div className="p-4 text-center text-gray-400">{t('Loading...', 'Inapakia...')}</div>
+
+  if (records.length === 0) {
+    return (
+      <div className="p-8 text-center text-gray-400">
+        <p className="text-3xl mb-3">📭</p>
+        <p className="text-sm">{t('No holding records yet.', 'Hakuna rekodi za kuhifadhi bado.')}</p>
+        <p className="text-xs mt-2 text-gray-400">{t('SMS from unknown senders appear here.', 'SMS kutoka nambari zisizojulikana zitaonekana hapa.')}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3 p-4">
+      {records.map(rec => (
+        <div key={rec.id} className="bg-white rounded-2xl border border-amber-200 overflow-hidden">
+          <div className="px-4 py-3 bg-amber-50">
+            <p className="text-xs text-gray-400">{new Date(rec.receivedAt).toLocaleString()} · <span className="font-mono">{rec.senderPhone}</span></p>
+            <p className="text-sm font-mono text-gray-700 mt-1 break-all">{rec.rawSms}</p>
+          </div>
+          <div className="px-4 py-2 text-xs text-amber-700 font-medium">
+            {t('No parser configured for this sender', 'Hakuna parser kwa nambari hii')}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function TeaRecordsPage() {
   const { t } = useLang()
+  const [tab, setTab] = useState<'tea' | 'holding'>('tea')
   const [records, setRecords] = useState<SmsRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<{ delivery: Delivery; rawSms: string } | null>(null)
@@ -206,21 +255,37 @@ export function TeaRecordsPage() {
     setEditing(null)
   }
 
-  if (loading) return <div className="p-4 text-center text-gray-400">{t('Loading...', 'Inapakia...')}</div>
-
-  if (records.length === 0) {
-    return (
-      <div className="p-4 text-center py-12 text-gray-400">
-        <p className="text-4xl mb-3">📱</p>
-        <p>{t('No SMS records yet.', 'Hakuna rekodi za SMS bado.')}</p>
-      </div>
-    )
-  }
-
   return (
-    <div className="p-4 max-w-2xl mx-auto">
-      <h1 className="text-xl font-bold text-green-800 mb-1">{t('Tea SMS Records', 'Rekodi za SMS ya Chai')}</h1>
+    <div className="max-w-2xl mx-auto">
+      {/* Tab bar */}
+      <div className="flex border-b border-gray-200 bg-white sticky top-0 z-10">
+        <button
+          onClick={() => setTab('tea')}
+          className={`flex-1 py-3 text-sm font-semibold ${tab === 'tea' ? 'text-green-700 border-b-2 border-green-700' : 'text-gray-400'}`}
+        >
+          {t('Tea SMS', 'SMS ya Chai')}
+        </button>
+        <button
+          onClick={() => setTab('holding')}
+          className={`flex-1 py-3 text-sm font-semibold ${tab === 'holding' ? 'text-amber-600 border-b-2 border-amber-500' : 'text-gray-400'}`}
+        >
+          {t('Holding', 'Kuhifadhi')}
+        </button>
+      </div>
+
+      {tab === 'holding' && <HoldingTab t={t} />}
+
+      {tab === 'tea' && (
+      <div className="p-4">
       <p className="text-sm text-gray-500 mb-5">{t('Tap any record to correct it.', 'Gonga rekodi yoyote kuirekebisha.')}</p>
+
+      {loading && <div className="text-center text-gray-400 py-8">{t('Loading...', 'Inapakia...')}</div>}
+      {!loading && records.length === 0 && (
+        <div className="text-center py-12 text-gray-400">
+          <p className="text-4xl mb-3">📱</p>
+          <p>{t('No SMS records yet.', 'Hakuna rekodi za SMS bado.')}</p>
+        </div>
+      )}
 
       <div className="space-y-4">
         {records.map(rec => (
@@ -296,6 +361,8 @@ export function TeaRecordsPage() {
           onClose={() => setEditing(null)}
           t={t}
         />
+      )}
+      </div>
       )}
     </div>
   )
