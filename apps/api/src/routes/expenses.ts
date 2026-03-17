@@ -1,7 +1,10 @@
 import { Router } from 'express'
+import Anthropic from '@anthropic-ai/sdk'
 import { prisma } from '../db/client'
 
 export const expensesRouter = Router()
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
@@ -63,15 +66,16 @@ expensesRouter.post('/', async (req, res, next) => {
 
     const expense = await prisma.expenseRecord.create({
       data: {
-        expenseDate:   new Date(String(body.expenseDate)),
-        enterprise:    String(body.enterprise),
-        account:       String(body.account),
-        amountKes:     Number(body.amountKes),
-        description:   body.description   ? String(body.description)   : null,
-        vendor:        body.vendor        ? String(body.vendor)        : null,
-        paymentMethod: body.paymentMethod ? String(body.paymentMethod) : null,
-        mpesaRef:      body.mpesaRef      ? String(body.mpesaRef)      : null,
-        approved:      false,
+        expenseDate:    new Date(String(body.expenseDate)),
+        enterprise:     String(body.enterprise),
+        account:        String(body.account),
+        amountKes:      Number(body.amountKes),
+        description:    body.description    ? String(body.description)    : null,
+        vendor:         body.vendor         ? String(body.vendor)         : null,
+        receiptImageId: body.receiptImageId ? String(body.receiptImageId) : null,
+        paymentMethod:  body.paymentMethod  ? String(body.paymentMethod)  : null,
+        mpesaRef:       body.mpesaRef       ? String(body.mpesaRef)       : null,
+        approved:       false,
       },
     })
 
@@ -102,6 +106,78 @@ expensesRouter.patch('/:id', async (req, res, next) => {
     })
 
     res.json(coerceExpense(expense as unknown as Record<string, unknown>))
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ─── POST /api/expenses/scan ──────────────────────────────────────────────────
+// Body: { imageBase64: string }  — bare base64 or with data: prefix
+// Calls Claude Haiku vision to extract receipt data. Does NOT save to DB.
+// Returns extracted JSON for manager review.
+
+expensesRouter.post('/scan', async (req, res, next) => {
+  try {
+    const { imageBase64 } = req.body as { imageBase64?: string }
+
+    if (!imageBase64) {
+      res.status(400).json({ error: 'imageBase64 is required' })
+      return
+    }
+
+    // Strip data URI prefix to get pure base64
+    const base64    = imageBase64.replace(/^data:image\/\w+;base64,/, '')
+    const mimeMatch = imageBase64.match(/^data:(image\/\w+);base64,/)
+    const mediaType = (mimeMatch?.[1] ?? 'image/jpeg') as
+      | 'image/jpeg'
+      | 'image/png'
+      | 'image/webp'
+      | 'image/gif'
+
+    const response = await anthropic.messages.create({
+      model:      'claude-haiku-4-5-20251001',
+      max_tokens: 600,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type:   'image',
+              source: { type: 'base64', media_type: mediaType, data: base64 },
+            },
+            {
+              type: 'text',
+              text: `You are reading a purchase receipt or invoice from a Kenyan shop/supplier.
+Extract the following in JSON:
+{
+  "vendor": "shop or supplier name",
+  "date": "YYYY-MM-DD or null if unclear",
+  "items": [{ "name": "item description", "qty": number, "unitPrice": number, "total": number }],
+  "totalAmount": number,
+  "paymentMethod": "cash|mpesa|credit|unknown",
+  "mpesaRef": "ref code if visible or null",
+  "suggestedEnterprise": "tea|dairy|rental|crops|staff|general"
+}
+Return ONLY valid JSON.`,
+            },
+          ],
+        },
+      ],
+    })
+
+    const rawText =
+      response.content[0].type === 'text' ? response.content[0].text : '{}'
+
+    let extracted: Record<string, unknown> = {}
+    try {
+      extracted = JSON.parse(rawText.replace(/```json\n?|\n?```/g, '').trim())
+    } catch {
+      // Return raw text so client can display a parse-error message
+      res.status(422).json({ error: 'Could not parse Claude response', raw: rawText })
+      return
+    }
+
+    res.json(extracted)
   } catch (err) {
     next(err)
   }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useLang } from '../../store/langStore'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
@@ -222,18 +222,90 @@ function KaziTab({ t }: { t: (en: string, sw: string) => string }) {
   )
 }
 
+// ─── Client-side image compression ───────────────────────────────────────────
+
+async function compressImage(file: File, maxWidth = 800, quality = 0.7): Promise<string> {
+  return new Promise(resolve => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      const scale  = Math.min(1, maxWidth / img.width)
+      const canvas = document.createElement('canvas')
+      canvas.width  = img.width  * scale
+      canvas.height = img.height * scale
+      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+      URL.revokeObjectURL(url)
+      resolve(canvas.toDataURL('image/jpeg', quality))
+    }
+    img.src = url
+  })
+}
+
 // ─── Matumizi Tab ─────────────────────────────────────────────────────────────
 
 function MatumiziTab({ t }: { t: (en: string, sw: string) => string }) {
   const today = new Date().toISOString().split('T')[0]
-  const [enterprise,  setEnterprise]  = useState('')
-  const [account,     setAccount]     = useState('')
-  const [amount,      setAmount]      = useState('')
-  const [payMethod,   setPayMethod]   = useState<'cash' | 'mpesa'>('cash')
-  const [date,        setDate]        = useState(today)
-  const [saving,      setSaving]      = useState(false)
-  const [saved,       setSaved]       = useState(false)
-  const [error,       setError]       = useState('')
+  const [enterprise,    setEnterprise]    = useState('')
+  const [account,       setAccount]       = useState('')
+  const [amount,        setAmount]        = useState('')
+  const [vendor,        setVendor]        = useState('')
+  const [mpesaRef,      setMpesaRef]      = useState('')
+  const [payMethod,     setPayMethod]     = useState<'cash' | 'mpesa'>('cash')
+  const [date,          setDate]          = useState(today)
+  const [saving,        setSaving]        = useState(false)
+  const [saved,         setSaved]         = useState(false)
+  const [error,         setError]         = useState('')
+  const [scanning,      setScanning]      = useState(false)
+  const [scanError,     setScanError]     = useState('')
+  const [receiptDataUrl, setReceiptDataUrl] = useState<string | null>(null)
+  const [receiptUploadId, setReceiptUploadId] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function handleReceiptPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setScanError(''); setScanning(true)
+    try {
+      const compressed = await compressImage(file)
+      setReceiptDataUrl(compressed)
+
+      // Call scan endpoint — do NOT save yet
+      const r = await fetch(`${API}/api/expenses/scan`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+        body:    JSON.stringify({ imageBase64: compressed.split(',')[1] }),
+      })
+      if (!r.ok) throw new Error(t('Scan failed', 'Kusoma risiti kumeshindwa'))
+      const data = await r.json() as {
+        vendor?: string
+        date?: string
+        totalAmount?: number
+        paymentMethod?: string
+        mpesaRef?: string
+        suggestedEnterprise?: string
+        items?: Array<{ name: string; qty: number; unitPrice: number; total: number }>
+      }
+
+      // Pre-fill form fields — manager can edit before saving
+      if (data.vendor)              setVendor(data.vendor)
+      if (data.totalAmount)         setAmount(String(data.totalAmount))
+      if (data.date)                setDate(data.date)
+      if (data.paymentMethod === 'mpesa' || data.paymentMethod === 'cash')
+        setPayMethod(data.paymentMethod)
+      if (data.mpesaRef)            setMpesaRef(data.mpesaRef)
+      if (data.suggestedEnterprise) setEnterprise(data.suggestedEnterprise)
+      if (data.items?.length) {
+        const summary = data.items.map(i => `${i.name} x${i.qty}`).join(', ')
+        setAccount(summary)
+      }
+    } catch (err) {
+      setScanError(err instanceof Error ? err.message : t('Scan failed', 'Kusoma risiti kumeshindwa'))
+    } finally {
+      setScanning(false)
+      // Reset input so the same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
 
   async function handleSave() {
     if (!enterprise) { setError(t('Select enterprise', 'Chagua biashara')); return }
@@ -241,20 +313,39 @@ function MatumiziTab({ t }: { t: (en: string, sw: string) => string }) {
     if (!amount)     { setError(t('Enter amount', 'Weka kiasi')); return }
     setSaving(true); setError('')
     try {
+      // Upload receipt image if we have one and haven't uploaded it yet
+      let uploadId = receiptUploadId
+      if (receiptDataUrl && !uploadId) {
+        const upR = await fetch(`${API}/api/uploads`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+          body:    JSON.stringify({ dataUrl: receiptDataUrl, mimeType: 'image/jpeg', linkedEntityType: 'ExpenseRecord' }),
+        })
+        if (upR.ok) {
+          const upData = await upR.json() as { id: string; url: string }
+          uploadId = upData.id
+          setReceiptUploadId(uploadId)
+        }
+      }
+
       const r = await fetch(`${API}/api/expenses`, {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
-        body: JSON.stringify({
-          expenseDate: date,
+        body:    JSON.stringify({
+          expenseDate:    date,
           enterprise,
-          account: account.trim(),
-          amountKes: Number(amount),
-          paymentMethod: payMethod,
+          account:        account.trim(),
+          amountKes:      Number(amount),
+          paymentMethod:  payMethod,
+          vendor:         vendor.trim() || undefined,
+          mpesaRef:       mpesaRef.trim() || undefined,
+          receiptImageId: uploadId ?? undefined,
         }),
       })
       if (!r.ok) throw new Error()
       setSaved(true)
-      setAccount(''); setAmount('')
+      setAccount(''); setAmount(''); setVendor(''); setMpesaRef('')
+      setReceiptDataUrl(null); setReceiptUploadId(null)
     } catch {
       setError(t('Failed. Try again.', 'Imeshindwa. Jaribu tena.'))
     } finally {
@@ -274,6 +365,41 @@ function MatumiziTab({ t }: { t: (en: string, sw: string) => string }) {
 
   return (
     <div className="space-y-3">
+      {/* Receipt scan button */}
+      <div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={handleReceiptPhoto}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={scanning}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-blue-400 bg-blue-50 text-blue-700 font-bold text-sm disabled:opacity-50">
+          {scanning ? (
+            <>
+              <span className="animate-spin text-lg">⏳</span>
+              {t('Reading receipt…', 'Inasoma risiti…')}
+            </>
+          ) : (
+            <>
+              <span className="text-xl">📷</span>
+              {t('Scan Receipt', 'Soma Risiti')}
+            </>
+          )}
+        </button>
+        {scanError && <p className="text-red-600 text-xs text-center mt-1">{scanError}</p>}
+        {receiptDataUrl && !scanning && (
+          <div className="mt-2 flex items-center gap-2">
+            <img src={receiptDataUrl} alt="receipt" className="w-16 h-16 object-cover rounded-xl border border-gray-200" />
+            <p className="text-xs text-green-700 font-semibold">{t('Receipt scanned — review fields below', 'Risiti imesomwa — angalia maelezo chini')}</p>
+          </div>
+        )}
+      </div>
+
       {/* Enterprise */}
       <div>
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
@@ -290,6 +416,16 @@ function MatumiziTab({ t }: { t: (en: string, sw: string) => string }) {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Vendor */}
+      <div>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+          {t('Vendor (optional)', 'Muuzaji (si lazima)')}
+        </p>
+        <input type="text" value={vendor} onChange={e => setVendor(e.target.value)}
+          placeholder={t('Shop / supplier name', 'Jina la duka / muuzaji')}
+          className="w-full border border-gray-300 rounded-2xl px-4 py-3 text-sm" />
       </div>
 
       {/* Item / account */}
@@ -335,6 +471,18 @@ function MatumiziTab({ t }: { t: (en: string, sw: string) => string }) {
           </button>
         </div>
       </div>
+
+      {/* M-Pesa ref (shown when mpesa selected) */}
+      {payMethod === 'mpesa' && (
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+            {t('M-Pesa Ref (optional)', 'Nambari ya M-Pesa (si lazima)')}
+          </p>
+          <input type="text" value={mpesaRef} onChange={e => setMpesaRef(e.target.value)}
+            placeholder="e.g. QGH3X4K2P1"
+            className="w-full border border-gray-300 rounded-2xl px-4 py-3 text-sm" />
+        </div>
+      )}
 
       {/* Date */}
       <div>

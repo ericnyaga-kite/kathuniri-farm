@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { prisma } from '../db/client'
+import { saveUpload } from '../lib/uploadHelper'
 
 export const logsRouter = Router()
 
@@ -72,6 +73,41 @@ logsRouter.delete('/:id', async (req, res, next) => {
   try {
     await prisma.dailyLog.delete({ where: { id: req.params.id } })
     res.json({ ok: true })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ─── POST /api/logs/:id/photo ─────────────────────────────────────────────────
+// Body: { dataUrl: string, mimeType: string }
+// Saves the image via saveUpload helper, then links it to the daily log.
+// Returns the updated log record.
+
+logsRouter.post('/:id/photo', async (req, res, next) => {
+  try {
+    const { dataUrl, mimeType } = req.body as {
+      dataUrl:  string
+      mimeType: string
+    }
+
+    if (!dataUrl || !mimeType) {
+      res.status(400).json({ error: 'dataUrl and mimeType are required' })
+      return
+    }
+
+    const upload = await saveUpload(
+      dataUrl,
+      mimeType,
+      'DailyLog',
+      req.params.id,
+    )
+
+    const log = await prisma.dailyLog.update({
+      where: { id: req.params.id },
+      data:  { photoId: upload.id },
+    })
+
+    res.json({ ...log, photoUrl: upload.url })
   } catch (err) {
     next(err)
   }

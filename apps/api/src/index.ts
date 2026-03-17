@@ -17,6 +17,7 @@ import { plotsRouter } from './routes/plots'
 import { reportsRouter } from './routes/reports'
 import { payrollRouter } from './routes/payroll'
 import { expensesRouter } from './routes/expenses'
+import { uploadsRouter } from './routes/uploads'
 import { errorHandler } from './middleware/errorHandler'
 import { startInsightsJob } from './jobs/insightsJob'
 
@@ -43,6 +44,7 @@ app.use('/api/plots', plotsRouter)
 app.use('/api/reports', reportsRouter)
 app.use('/api/payroll', payrollRouter)
 app.use('/api/expenses', expensesRouter)
+app.use('/api/uploads', uploadsRouter)
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
