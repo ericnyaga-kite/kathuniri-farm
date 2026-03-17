@@ -247,6 +247,7 @@ model Cow {
   dam                 Cow?                  @relation("CowDam", fields: [damId], references: [id])
   calves              Cow[]                 @relation("CowDam")
   milkProduction      MilkProduction[]
+  feedRecords         CowFeedRecord[]
   healthEvents        HealthEvent[]
   reproductionEvents  ReproductionEvent[]
   calvesRecords       Calf[]
@@ -923,6 +924,21 @@ model SmallStockHealthEvent {
   @@index([animalId])
   @@index([eventDate])
   @@map("small_stock_health_events")
+}
+
+model CowFeedRecord {
+  id        String   @id @default(uuid())
+  feedDate  DateTime @db.Date
+  cowId     String?
+  feedType  String
+  quantityKg Decimal @db.Decimal(8, 2)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  cow Cow? @relation(fields: [cowId], references: [id])
+
+  @@index([feedDate])
+  @@map("cow_feed_records")
 }
 
 model MilkReceipt {

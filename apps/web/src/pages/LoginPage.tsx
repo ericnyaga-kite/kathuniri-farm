@@ -3,21 +3,29 @@ import { GoogleLogin } from '@react-oauth/google'
 import { useAuthStore } from '../store/authStore'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
-const FALLBACK_PIN = '5678'
+const PIN_CACHE_KEY  = 'kf_manager_pin'
+const FALLBACK_PIN   = '5678'
 
 export function LoginPage() {
   const [pin, setPin]           = useState('')
   const [error, setError]       = useState('')
   const [mode, setMode]         = useState<'pin' | 'google'>('pin')
-  const [managerPin, setManagerPin] = useState(FALLBACK_PIN)
+  const [managerPin, setManagerPin] = useState(
+    () => localStorage.getItem(PIN_CACHE_KEY) ?? FALLBACK_PIN
+  )
   const { setUser }             = useAuthStore()
 
-  // Fetch current manager PIN from server; fall back to hardcoded if offline
+  // Fetch current manager PIN from server; cache it for offline use
   useState(() => {
     fetch(`${API}/api/auth/manager-pin`)
       .then(r => r.json())
-      .then(d => { if (d.pin) setManagerPin(d.pin) })
-      .catch(() => {}) // offline — use fallback
+      .then(d => {
+        if (d.pin) {
+          localStorage.setItem(PIN_CACHE_KEY, d.pin)
+          setManagerPin(d.pin)
+        }
+      })
+      .catch(() => {}) // offline — use cached value
   })
 
   function handleDigit(d: string) {

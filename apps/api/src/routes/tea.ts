@@ -644,3 +644,59 @@ teaRouter.get('/float/topups', async (req, res, next) => {
     next(err)
   }
 })
+
+// ─── POST /api/tea/picking/scan ───────────────────────────────────────────
+// Accepts a base64 photo of a picking register, uses Claude vision to extract
+// picker names and kg picked. Returns an array of { name, kg } rows.
+// No data is saved — the manager reviews then submits via POST /api/tea/sessions.
+import Anthropic from '@anthropic-ai/sdk'
+const _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+teaRouter.post('/picking/scan', async (req, res, next) => {
+  try {
+    const { imageData } = req.body as { imageData: string }
+    if (!imageData) { res.status(400).json({ error: 'imageData required' }); return }
+
+    const base64    = imageData.replace(/^data:image\/\w+;base64,/, '')
+    const mimeMatch = imageData.match(/^data:(image\/\w+);base64,/)
+    const mediaType = (mimeMatch?.[1] ?? 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/webp'
+
+    const response = await _anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 600,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          {
+            type: 'text',
+            text: `This is a handwritten tea picking register from a Kenyan farm. Each row shows a picker's name and the kilograms of tea they picked today. Extract ALL rows and return ONLY valid JSON:
+{
+  "date": "YYYY-MM-DD or null",
+  "sector": "area/sector name if visible or null",
+  "pickers": [
+    { "name": "picker name", "kg": number }
+  ]
+}
+Include every row you can read. If a value is unclear use your best guess. No explanation, just JSON.`,
+          },
+        ],
+      }],
+    })
+
+    let parsed: { date?: string | null; sector?: string | null; pickers?: { name: string; kg: number }[] } = {}
+    try {
+      const text = response.content[0].type === 'text' ? response.content[0].text : ''
+      parsed = JSON.parse(text.replace(/```json\n?|\n?```/g, '').trim())
+    } catch {
+      res.status(422).json({ error: 'Could not parse register', pickers: [] })
+      return
+    }
+
+    res.json({
+      date:    parsed.date    ?? null,
+      sector:  parsed.sector  ?? null,
+      pickers: (parsed.pickers ?? []).filter(p => p.name && p.kg > 0),
+    })
+  } catch (err) { next(err) }
+})

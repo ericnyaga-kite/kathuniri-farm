@@ -19,7 +19,7 @@ export interface MilkProductionRecord {
   id: string
   productionDate: string
   cowId?: string
-  session: 'AM' | 'PM'
+  session: 'dawn' | 'morning' | 'afternoon' | 'evening' | 'AM' | 'PM'
   litres: number
   withdrawalActive: boolean
   saleable: boolean

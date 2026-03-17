@@ -510,7 +510,12 @@ dairyRouter.post('/milk', async (req, res, next) => {
     const b = req.body as Record<string, unknown>
     const productionDate = new Date(String(b.productionDate))
     const cowId   = b.cowId   ? String(b.cowId)   : null
-    const session = String(b.session === 'AM' || b.session === 'morning' ? 'morning' : 'evening')
+    const sessionMap: Record<string, string> = {
+      AM: 'morning', PM: 'evening',
+      morning: 'morning', evening: 'evening',
+      dawn: 'dawn', afternoon: 'afternoon',
+    }
+    const session = sessionMap[String(b.session)] ?? String(b.session)
 
     // Check for existing record (same date + cow + session)
     const existing = await prisma.milkProduction.findFirst({
@@ -765,5 +770,77 @@ dairyRouter.patch('/receipts/:id', async (req, res, next) => {
       data,
     })
     res.json({ ...receipt, quantityKg: receipt.quantityKg ? Number(receipt.quantityKg) : null, cumulativeKg: receipt.cumulativeKg ? Number(receipt.cumulativeKg) : null })
+  } catch (err) { next(err) }
+})
+
+// ─── GET /api/dairy/deliveries?date=YYYY-MM-DD ────────────────────────────
+dairyRouter.get('/deliveries', async (req, res, next) => {
+  try {
+    const { date } = req.query as Record<string, string>
+    const where: Record<string, unknown> = {}
+    if (date) {
+      const d = new Date(date)
+      where.deliveryDate = d
+    } else {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      where.deliveryDate = { gte: today }
+    }
+    const deliveries = await prisma.milkDelivery.findMany({
+      where: where as never,
+      orderBy: { deliveryDate: 'desc' },
+      take: 30,
+      include: { buyer: { select: { id: true, canonicalName: true, paymentType: true } } },
+    })
+    res.json(deliveries.map(d => ({
+      id:              d.id,
+      deliveryDate:    d.deliveryDate,
+      buyerId:         d.buyerId,
+      buyerName:       d.buyer.canonicalName,
+      paymentType:     d.buyer.paymentType,
+      litres:          Number(d.litres),
+      pricePerLitre:   Number(d.pricePerLitre),
+      totalValue:      Number(d.totalValue),
+      paymentReceived: d.paymentReceived,
+    })))
+  } catch (err) { next(err) }
+})
+
+// ─── GET /api/dairy/feed?date=YYYY-MM-DD ─────────────────────────────────
+dairyRouter.get('/feed', async (req, res, next) => {
+  try {
+    const { date } = req.query as Record<string, string>
+    const feedDate = date ? new Date(date) : new Date()
+    const records = await prisma.cowFeedRecord.findMany({
+      where: { feedDate },
+      orderBy: { createdAt: 'asc' },
+      include: { cow: { select: { id: true, name: true } } },
+    })
+    res.json(records.map(r => ({
+      id:         r.id,
+      feedDate:   r.feedDate,
+      cowId:      r.cowId,
+      cowName:    r.cow?.name ?? null,
+      feedType:   r.feedType,
+      quantityKg: Number(r.quantityKg),
+      notes:      r.notes,
+    })))
+  } catch (err) { next(err) }
+})
+
+// ─── POST /api/dairy/feed ─────────────────────────────────────────────────
+dairyRouter.post('/feed', async (req, res, next) => {
+  try {
+    const b = req.body as Record<string, unknown>
+    const record = await prisma.cowFeedRecord.create({
+      data: {
+        feedDate:   new Date(String(b.feedDate)),
+        cowId:      b.cowId ? String(b.cowId) : null,
+        feedType:   String(b.feedType),
+        quantityKg: Number(b.quantityKg),
+        notes:      b.notes ? String(b.notes) : null,
+      },
+    })
+    res.status(201).json({ ...record, quantityKg: Number(record.quantityKg) })
   } catch (err) { next(err) }
 })

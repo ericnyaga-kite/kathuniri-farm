@@ -6,49 +6,34 @@ import { pendingSyncCount } from '../../services/syncService'
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
 function token() { return localStorage.getItem('kf_token') ?? '' }
 
-interface CowSummary {
-  id: string; name: string; tagNumber: string | null; status: string; litresToday: number
-}
-interface RoomStatus {
-  id: string; roomNumber: number; tenantName: string | null; paidThisMonth: boolean
-}
-interface WithdrawalAlert {
-  drugName: string; withdrawalEndsDate: string; cowName: string
-}
+interface CowSummary { id: string; name: string; tagNumber: string | null; status: string; litresToday: number }
+interface WithdrawalAlert { drugName: string; withdrawalEndsDate: string; cowName: string }
 interface DailySummary {
   date: string
   tea: { totalKgToday: number | null; lastDeliveryDate: string | null; lastDeliverySource: string | null }
   milk: { totalLitresToday: number; cows: CowSummary[] }
   healthAlerts: { activeWithdrawals: WithdrawalAlert[]; recentEvents: { id: string; eventDate: string; eventType: string; conditionName: string | null; cowName: string }[] }
-  rental: { totalOccupied: number; paidCount: number; unpaidCount: number; rooms: RoomStatus[]; needingReading: { roomNumber: number; tenantName: string | null }[] }
+  rental: { totalOccupied: number; paidCount: number; unpaidCount: number; needingReading: { roomNumber: number; tenantName: string | null }[] }
   logs: { id: string; category: string; title: string | null; body: string }[]
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })
-}
-
-function daysLeft(dateStr: string) {
-  const diff = new Date(dateStr).getTime() - Date.now()
-  return Math.ceil(diff / 86_400_000)
-}
+function fmtDate(iso: string) { return new Date(iso).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }) }
+function daysLeft(dateStr: string) { return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86_400_000) }
 
 export function HomePage() {
   const { t, lang } = useLang()
-  const navigate   = useNavigate()
-  const [pending, setPending]   = useState(0)
-  const [summary, setSummary]   = useState<DailySummary | null>(null)
-  const [loading, setLoading]   = useState(true)
+  const navigate    = useNavigate()
+  const [pending, setPending] = useState(0)
+  const [summary, setSummary] = useState<DailySummary | null>(null)
+  const [loading, setLoading] = useState(true)
 
   const today = new Date().toLocaleDateString(lang === 'en' ? 'en-KE' : 'sw-KE', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    weekday: 'long', day: 'numeric', month: 'long',
   })
 
   useEffect(() => {
     pendingSyncCount().then(setPending)
-    fetch(`${API}/api/summary/today`, {
-      headers: { Authorization: `Bearer ${token()}` },
-    })
+    fetch(`${API}/api/summary/today`, { headers: { Authorization: `Bearer ${token()}` } })
       .then(r => r.json())
       .then(setSummary)
       .catch(() => {})
@@ -73,9 +58,7 @@ export function HomePage() {
         </div>
       )}
 
-      {loading && (
-        <p className="text-sm text-gray-400 text-center py-4">{t('Loading…', 'Inapakia…')}</p>
-      )}
+      {loading && <p className="text-sm text-gray-400 text-center py-4">{t('Loading…', 'Inapakia…')}</p>}
 
       {summary && (
         <>
@@ -98,10 +81,8 @@ export function HomePage() {
                 <span className="text-2xl">🍃</span>
                 <span className="font-semibold text-gray-800">{t('Tea', 'Chai')}</span>
               </div>
-              <button
-                onClick={() => navigate('/manager/chai')}
-                className="text-xs bg-green-700 text-white px-3 py-1 rounded-xl font-semibold"
-              >
+              <button onClick={() => navigate('/manager/chai')}
+                className="text-xs bg-green-700 text-white px-3 py-1.5 rounded-xl font-semibold">
                 + {t('Entry', 'Ingiza')}
               </button>
             </div>
@@ -132,23 +113,19 @@ export function HomePage() {
                 <span className="text-2xl">🥛</span>
                 <span className="font-semibold text-gray-800">{t('Milk Today', 'Maziwa Leo')}</span>
               </div>
-              <button
-                onClick={() => navigate('/manager/maziwa')}
-                className="text-xs bg-blue-600 text-white px-3 py-1 rounded-xl font-semibold"
-              >
+              <button onClick={() => navigate('/manager/maziwa')}
+                className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-xl font-semibold">
                 + {t('Enter', 'Ingiza')}
               </button>
             </div>
             <div className="text-center mb-3">
               <p className="text-3xl font-bold text-blue-700">{summary.milk.totalLitresToday} L</p>
             </div>
+            {/* Compact cow rows */}
             <div className="space-y-1">
               {summary.milk.cows.map(cow => (
                 <div key={cow.id} className="flex justify-between items-center bg-gray-50 rounded-xl px-3 py-2">
-                  <div>
-                    <span className="text-sm font-medium text-gray-800">{cow.name}</span>
-                    {cow.tagNumber && <span className="text-xs text-gray-400 ml-1">#{cow.tagNumber}</span>}
-                  </div>
+                  <span className="text-sm font-medium text-gray-800">🐄 {cow.name}</span>
                   <span className={`text-sm font-bold ${cow.litresToday > 0 ? 'text-blue-700' : 'text-gray-300'}`}>
                     {cow.litresToday > 0 ? `${cow.litresToday} L` : '—'}
                   </span>
@@ -157,42 +134,40 @@ export function HomePage() {
             </div>
           </div>
 
-          {/* ── Rental ───────────────────────────────────────────────────── */}
+          {/* ── Rental — compact summary only ───────────────────────────── */}
           <div className="bg-white rounded-2xl border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-2xl">🏠</span>
-              <span className="font-semibold text-gray-800">{t('Rent This Month', 'Kodi Mwezi Huu')}</span>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">🏠</span>
+                <span className="font-semibold text-gray-800">{t('Rent', 'Kodi')}</span>
+              </div>
+              <button onClick={() => navigate('/manager/kodi')}
+                className="text-xs bg-green-700 text-white px-3 py-1.5 rounded-xl font-semibold">
+                + {t('Collect', 'Kusanya')}
+              </button>
             </div>
-            <div className="flex gap-3 mb-3">
-              <div className="flex-1 text-center bg-green-50 rounded-xl py-2">
-                <p className="text-xl font-bold text-green-700">{summary.rental.paidCount}</p>
+            <div className="flex gap-3">
+              <div className="flex-1 text-center bg-green-50 rounded-xl py-3">
+                <p className="text-2xl font-bold text-green-700">{summary.rental.paidCount}</p>
                 <p className="text-xs text-gray-500">{t('Paid', 'Amelipa')}</p>
               </div>
-              <div className="flex-1 text-center bg-red-50 rounded-xl py-2">
-                <p className="text-xl font-bold text-red-600">{summary.rental.unpaidCount}</p>
+              <div className="flex-1 text-center bg-red-50 rounded-xl py-3">
+                <p className="text-2xl font-bold text-red-600">{summary.rental.unpaidCount}</p>
                 <p className="text-xs text-gray-500">{t('Unpaid', 'Hajalipa')}</p>
               </div>
-            </div>
-            <div className="space-y-1">
-              {summary.rental.rooms.map(r => (
-                <div key={r.id} className="flex justify-between items-center px-1">
-                  <p className="text-xs text-gray-700">
-                    {t('Room', 'Chumba')} {r.roomNumber}{r.tenantName ? ` — ${r.tenantName}` : ''}
-                  </p>
-                  <span className={`text-xs font-semibold ${r.paidThisMonth ? 'text-green-600' : 'text-red-500'}`}>
-                    {r.paidThisMonth ? '✓' : '✗'}
-                  </span>
-                </div>
-              ))}
+              <div className="flex-1 text-center bg-gray-50 rounded-xl py-3">
+                <p className="text-2xl font-bold text-gray-600">{summary.rental.totalOccupied}</p>
+                <p className="text-xs text-gray-500">{t('Total', 'Jumla')}</p>
+              </div>
             </div>
             {summary.rental.needingReading.length > 0 && (
               <p className="text-xs text-amber-600 mt-2">
-                ⚡ {summary.rental.needingReading.map(r => `${t('Room', 'Chumba')} ${r.roomNumber}`).join(', ')} — {t('no meter reading this month', 'hakuna usomaji wa mita mwezi huu')}
+                ⚡ {summary.rental.needingReading.map(r => `${t('Rm','Chumba')} ${r.roomNumber}`).join(', ')} — {t('no meter reading', 'hakuna usomaji wa mita')}
               </p>
             )}
           </div>
 
-          {/* ── Recent health events ─────────────────────────────────────── */}
+          {/* ── Recent health events ──────────────────────────────────────── */}
           {summary.healthAlerts.recentEvents.length > 0 && (
             <div className="bg-white rounded-2xl border border-gray-200 p-4">
               <div className="flex items-center gap-2 mb-3">
@@ -213,17 +188,15 @@ export function HomePage() {
             </div>
           )}
 
-          {/* ── Today's logs ─────────────────────────────────────────────── */}
+          {/* ── Today's log ───────────────────────────────────────────────── */}
           <div className="bg-white rounded-2xl border border-gray-200 p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="text-2xl">📝</span>
                 <span className="font-semibold text-gray-800">{t("Today's Log", 'Kumbukumbu ya Leo')}</span>
               </div>
-              <button
-                onClick={() => navigate('/manager/log')}
-                className="text-xs bg-purple-600 text-white px-3 py-1 rounded-xl font-semibold"
-              >
+              <button onClick={() => navigate('/manager/log')}
+                className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-xl font-semibold">
                 + {t('Add', 'Ongeza')}
               </button>
             </div>
