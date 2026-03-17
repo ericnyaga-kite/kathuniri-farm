@@ -19,20 +19,20 @@ function normPhone(raw: string): string {
   return raw.replace(/\s+/g, '').replace(/^\+254/, '0').replace(/^254/, '0')
 }
 
-async function handleIncoming(sender: string, message: string, receivedAt: Date) {
+async function handleIncoming(sender: string, message: string, receivedAt: Date, source = 'live') {
   const phone = normPhone(sender)
 
   const parser = SENDER_REGISTRY[phone]
   if (!parser) {
     // No parser configured — park in holding for inspection/testing
     await prisma.smsHoldingRecord.create({
-      data: { receivedAt, senderPhone: phone, rawSms: message },
+      data: { receivedAt, senderPhone: phone, rawSms: message, source },
     })
     return
   }
 
   const record = await prisma.teaSmsRecord.create({
-    data: { receivedAt, senderPhone: phone, rawSms: message, parsed: false },
+    data: { receivedAt, senderPhone: phone, rawSms: message, parsed: false, source },
   })
 
   // Parse in background — respond fast to the Android app
@@ -52,8 +52,8 @@ async function handleIncoming(sender: string, message: string, receivedAt: Date)
 // ---------------------------------------------------------------------------
 smsRouter.post('/', async (req, res, next) => {
   try {
-    const { secret, sender, message, receivedAt } = req.body as {
-      secret: string; sender: string; message: string; receivedAt?: string
+    const { secret, sender, message, receivedAt, source } = req.body as {
+      secret: string; sender: string; message: string; receivedAt?: string; source?: string
     }
 
     if (secret !== process.env.SMS_UTILITY_SECRET) {
@@ -64,7 +64,7 @@ smsRouter.post('/', async (req, res, next) => {
     }
 
     const ts = receivedAt ? new Date(receivedAt) : new Date()
-    await handleIncoming(sender, message, ts)
+    await handleIncoming(sender, message, ts, source ?? 'live')
     return res.json({ received: true })
   } catch (err) {
     next(err)
@@ -77,9 +77,10 @@ smsRouter.post('/', async (req, res, next) => {
 // Skips duplicates (same sender + message + same day already stored).
 smsRouter.post('/bulk', async (req, res, next) => {
   try {
-    const { secret, messages } = req.body as {
+    const { secret, messages, source: bulkSource } = req.body as {
       secret: string
       messages: Array<{ sender: string; message: string; receivedAt: string }>
+      source?: string  // optional per-batch source; individual messages can override
     }
 
     if (secret !== process.env.SMS_UTILITY_SECRET) {
@@ -113,7 +114,7 @@ smsRouter.post('/bulk', async (req, res, next) => {
           continue
         }
 
-        await handleIncoming(msg.sender, msg.message, ts)
+        await handleIncoming(msg.sender, msg.message, ts, bulkSource ?? 'historical')
         results.push({ receivedAt: msg.receivedAt, sender: phone, status: 'stored' })
       } catch (err) {
         results.push({ receivedAt: msg.receivedAt, sender: msg.sender, status: 'error', error: String(err) })

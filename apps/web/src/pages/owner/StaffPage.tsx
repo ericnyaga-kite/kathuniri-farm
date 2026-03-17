@@ -89,8 +89,9 @@ function AdvanceForm({ staffId, staffName, onSaved, onCancel, t }: {
   )
 }
 
-function StaffCard({ member, onRefresh, t }: {
+function StaffCard({ member, onEdit, onRefresh, t }: {
   member: StaffMember
+  onEdit: () => void
   onRefresh: () => void
   t: (en: string, sw: string) => string
 }) {
@@ -140,6 +141,10 @@ function StaffCard({ member, onRefresh, t }: {
             className="flex-1 border border-gray-200 rounded-xl py-1.5 text-xs text-gray-500 hover:bg-gray-50">
             {expanded ? '▲ ' : '▼ '}{t('Advances', 'Mikopo')}
           </button>
+          <button onClick={onEdit}
+            className="flex-1 border border-blue-200 text-blue-600 rounded-xl py-1.5 text-xs font-semibold hover:bg-blue-50">
+            {t('Edit', 'Hariri')}
+          </button>
           <button onClick={() => setShowAdvanceForm(s => !s)}
             className="flex-1 border border-amber-300 text-amber-700 rounded-xl py-1.5 text-xs font-semibold hover:bg-amber-50">
             + {t('Advance', 'Mkopo')}
@@ -185,11 +190,117 @@ function StaffCard({ member, onRefresh, t }: {
   )
 }
 
+function StaffForm({ member, onSaved, onCancel, t }: {
+  member?: StaffMember
+  onSaved: () => void
+  onCancel: () => void
+  t: (en: string, sw: string) => string
+}) {
+  const [form, setForm] = useState({
+    fullName:        member?.fullName        ?? '',
+    phone:           member?.phone           ?? '',
+    employmentType:  member?.employmentType  ?? 'permanent',
+    monthlySalary:   member?.monthlySalary   != null ? String(member.monthlySalary) : '',
+    paymentMethod:   member?.paymentMethod   ?? 'cash',
+    mpesaNumber:     member?.mpesaNumber     ?? '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState<string | null>(null)
+
+  function field(k: string, v: string) { setForm(f => ({ ...f, [k]: v })) }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.fullName.trim()) { setError(t('Name is required', 'Jina linahitajika')); return }
+    setSaving(true); setError(null)
+    try {
+      const body = {
+        fullName:       form.fullName.trim(),
+        phone:          form.phone.trim() || null,
+        employmentType: form.employmentType,
+        monthlySalary:  form.monthlySalary ? parseFloat(form.monthlySalary) : null,
+        paymentMethod:  form.paymentMethod,
+        mpesaNumber:    form.mpesaNumber.trim() || null,
+      }
+      const url    = member ? `${API}/api/staff/${member.id}` : `${API}/api/staff`
+      const method = member ? 'PATCH' : 'POST'
+      const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      if (!r.ok) throw new Error('Failed')
+      onSaved()
+    } catch { setError(t('Failed to save', 'Imeshindwa kuhifadhi')) }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <form onSubmit={submit} className="bg-green-50 rounded-2xl p-4 space-y-3 border border-green-200">
+      <p className="font-semibold text-green-800 text-sm">
+        {member ? t('Edit Staff', 'Hariri Mfanyakazi') : t('Add Staff', 'Ongeza Mfanyakazi')}
+      </p>
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      <div>
+        <label className="text-xs text-gray-500">{t('Full Name', 'Jina Kamili')} *</label>
+        <input type="text" value={form.fullName} onChange={e => field('fullName', e.target.value)}
+          className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-xs text-gray-500">{t('Phone', 'Simu')}</label>
+          <input type="tel" value={form.phone} onChange={e => field('phone', e.target.value)}
+            placeholder="07xx..." className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500">{t('Type', 'Aina')}</label>
+          <select value={form.employmentType} onChange={e => field('employmentType', e.target.value)}
+            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm bg-white">
+            <option value="permanent">{t('Permanent', 'Kudumu')}</option>
+            <option value="casual">{t('Casual', 'Kawaida')}</option>
+            <option value="contract">{t('Contract', 'Mkataba')}</option>
+          </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-xs text-gray-500">{t('Monthly Salary (KES)', 'Mshahara (KES)')}</label>
+          <input type="number" value={form.monthlySalary} onChange={e => field('monthlySalary', e.target.value)}
+            placeholder="e.g. 15000" className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500">{t('Payment', 'Malipo')}</label>
+          <select value={form.paymentMethod} onChange={e => field('paymentMethod', e.target.value)}
+            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm bg-white">
+            <option value="cash">{t('Cash', 'Taslimu')}</option>
+            <option value="mpesa">M-Pesa</option>
+          </select>
+        </div>
+      </div>
+      {form.paymentMethod === 'mpesa' && (
+        <div>
+          <label className="text-xs text-gray-500">M-Pesa {t('Number', 'Nambari')}</label>
+          <input type="tel" value={form.mpesaNumber} onChange={e => field('mpesaNumber', e.target.value)}
+            placeholder="07xx..." className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" />
+        </div>
+      )}
+      <div className="flex gap-2 pt-1">
+        <button type="submit" disabled={saving}
+          className="flex-1 bg-green-700 text-white rounded-xl py-2 text-sm font-semibold disabled:opacity-50">
+          {saving ? t('Saving...', 'Inahifadhi...') : t('Save', 'Hifadhi')}
+        </button>
+        <button type="button" onClick={onCancel}
+          className="flex-1 border border-gray-300 rounded-xl py-2 text-sm text-gray-600">
+          {t('Cancel', 'Ghairi')}
+        </button>
+      </div>
+    </form>
+  )
+}
+
 export function StaffPage() {
   const { t } = useLang()
   const [staff, setStaff] = useState<StaffMember[]>([])
   const [loading, setLoading] = useState(false)
   const [totalOutstanding, setTotalOutstanding] = useState(0)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [editing, setEditing] = useState<StaffMember | null>(null)
 
   const fetchStaff = useCallback(() => {
     setLoading(true)
@@ -209,7 +320,34 @@ export function StaffPage() {
 
   return (
     <div className="p-4 max-w-2xl mx-auto">
-      <h1 className="text-xl font-bold text-green-800 mb-1">{t('Staff', 'Wafanyakazi')}</h1>
+      <div className="flex justify-between items-center mb-1">
+        <h1 className="text-xl font-bold text-green-800">{t('Staff', 'Wafanyakazi')}</h1>
+        <button onClick={() => { setShowAddForm(s => !s); setEditing(null) }}
+          className="bg-green-700 text-white text-sm px-3 py-1.5 rounded-xl font-semibold">
+          + {t('Add', 'Ongeza')}
+        </button>
+      </div>
+
+      {showAddForm && (
+        <div className="mb-4">
+          <StaffForm
+            onSaved={() => { setShowAddForm(false); fetchStaff() }}
+            onCancel={() => setShowAddForm(false)}
+            t={t}
+          />
+        </div>
+      )}
+
+      {editing && (
+        <div className="mb-4">
+          <StaffForm
+            member={editing}
+            onSaved={() => { setEditing(null); fetchStaff() }}
+            onCancel={() => setEditing(null)}
+            t={t}
+          />
+        </div>
+      )}
 
       {totalOutstanding > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-4 flex justify-between items-center">
@@ -225,13 +363,13 @@ export function StaffPage() {
             {permanent.length > 0 && (
               <>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{t('Permanent', 'Kudumu')}</p>
-                {permanent.map(m => <StaffCard key={m.id} member={m} onRefresh={fetchStaff} t={t} />)}
+                {permanent.map(m => <StaffCard key={m.id} member={m} onEdit={() => setEditing(m)} onRefresh={fetchStaff} t={t} />)}
               </>
             )}
             {others.length > 0 && (
               <>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mt-2">{t('Casual / Contract', 'Kawaida / Mkataba')}</p>
-                {others.map(m => <StaffCard key={m.id} member={m} onRefresh={fetchStaff} t={t} />)}
+                {others.map(m => <StaffCard key={m.id} member={m} onEdit={() => setEditing(m)} onRefresh={fetchStaff} t={t} />)}
               </>
             )}
             {staff.length === 0 && (

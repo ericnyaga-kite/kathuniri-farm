@@ -158,6 +158,50 @@ staffRouter.get('/payroll/summary', async (req, res, next) => {
   }
 })
 
+// ─── POST /api/staff ──────────────────────────────────────────────────────────
+staffRouter.post('/', async (req, res, next) => {
+  try {
+    const body = req.body as Record<string, unknown>
+    const staff = await prisma.staff.create({
+      data: {
+        fullName:        String(body.fullName),
+        nationalId:      body.nationalId      ? String(body.nationalId)      : null,
+        phone:           body.phone           ? String(body.phone)           : null,
+        employmentType:  String(body.employmentType ?? 'permanent'),
+        startDate:       body.startDate       ? new Date(String(body.startDate)) : null,
+        monthlySalary:   body.monthlySalary   != null ? Number(body.monthlySalary)   : null,
+        dailyRate:       body.dailyRate       != null ? Number(body.dailyRate)       : null,
+        pickerRatePerKg: body.pickerRatePerKg != null ? Number(body.pickerRatePerKg) : null,
+        paymentMethod:   String(body.paymentMethod ?? 'cash'),
+        mpesaNumber:     body.mpesaNumber     ? String(body.mpesaNumber)     : null,
+        active:          true,
+      },
+    })
+    res.status(201).json(coerceStaff(staff as unknown as Record<string, unknown>))
+  } catch (err) { next(err) }
+})
+
+// ─── PATCH /api/staff/:id ─────────────────────────────────────────────────────
+staffRouter.patch('/:id', async (req, res, next) => {
+  try {
+    const body = req.body as Record<string, unknown>
+    const data: Record<string, unknown> = {}
+    if (body.fullName        !== undefined) data.fullName        = String(body.fullName)
+    if (body.nationalId      !== undefined) data.nationalId      = body.nationalId ? String(body.nationalId) : null
+    if (body.phone           !== undefined) data.phone           = body.phone ? String(body.phone) : null
+    if (body.employmentType  !== undefined) data.employmentType  = String(body.employmentType)
+    if (body.startDate       !== undefined) data.startDate       = body.startDate ? new Date(String(body.startDate)) : null
+    if (body.monthlySalary   !== undefined) data.monthlySalary   = body.monthlySalary != null ? Number(body.monthlySalary) : null
+    if (body.dailyRate       !== undefined) data.dailyRate       = body.dailyRate != null ? Number(body.dailyRate) : null
+    if (body.pickerRatePerKg !== undefined) data.pickerRatePerKg = body.pickerRatePerKg != null ? Number(body.pickerRatePerKg) : null
+    if (body.paymentMethod   !== undefined) data.paymentMethod   = String(body.paymentMethod)
+    if (body.mpesaNumber     !== undefined) data.mpesaNumber     = body.mpesaNumber ? String(body.mpesaNumber) : null
+    if (body.active          !== undefined) data.active          = Boolean(body.active)
+    const staff = await prisma.staff.update({ where: { id: req.params.id }, data })
+    res.json(coerceStaff(staff as unknown as Record<string, unknown>))
+  } catch (err) { next(err) }
+})
+
 // ─── POST /api/staff/payroll/runs ────────────────────────────────────────────
 // Create a MonthlyPayrollRun (status=draft) if one doesn't exist for that month.
 // NOTE: Must be registered before /:id.

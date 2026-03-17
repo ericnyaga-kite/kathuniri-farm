@@ -10,6 +10,11 @@ import { syncRouter } from './routes/sync'
 import { smsRouter } from './routes/sms'
 import { authRouter } from './routes/auth'
 import { aiRouter } from './routes/ai'
+import { summaryRouter } from './routes/summary'
+import { logsRouter } from './routes/logs'
+import { machineryRouter } from './routes/machinery'
+import { plotsRouter } from './routes/plots'
+import { reportsRouter } from './routes/reports'
 import { errorHandler } from './middleware/errorHandler'
 import { startInsightsJob } from './jobs/insightsJob'
 
@@ -19,7 +24,10 @@ const PORT = process.env.PORT ?? 3000
 app.use(helmet())
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
-    ? ['https://your-domain.com']  // update before deploy
+    ? [
+        'https://kathuniri-farm.pages.dev',
+        /^https:\/\/[a-z0-9]+\.kathuniri-farm\.pages\.dev$/,  // preview deployments
+      ]
     : ['http://localhost:5173'],
   credentials: true,
 }))
@@ -34,6 +42,11 @@ app.use('/api/rental', rentalRouter)
 app.use('/api/sync', syncRouter)
 app.use('/api/sms', smsRouter)
 app.use('/api/ai', aiRouter)
+app.use('/api/summary', summaryRouter)
+app.use('/api/logs', logsRouter)
+app.use('/api/machinery', machineryRouter)
+app.use('/api/plots', plotsRouter)
+app.use('/api/reports', reportsRouter)
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })

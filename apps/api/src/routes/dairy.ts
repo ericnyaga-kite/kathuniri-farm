@@ -1,5 +1,8 @@
 import { Router } from 'express'
 import { prisma } from '../db/client'
+import Anthropic from '@anthropic-ai/sdk'
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export const dairyRouter = Router()
 
@@ -304,6 +307,110 @@ dairyRouter.post('/deliveries', async (req, res, next) => {
   }
 })
 
+// POST /api/dairy/cows
+dairyRouter.post('/cows', async (req, res, next) => {
+  try {
+    const b = req.body as Record<string, unknown>
+    const cow = await prisma.cow.create({
+      data: {
+        name:               String(b.name),
+        tagNumber:          b.tagNumber  ? String(b.tagNumber)  : null,
+        breed:              b.breed      ? String(b.breed)      : null,
+        status:             String(b.status ?? 'milking'),
+        dateLastCalved:     b.dateLastCalved    ? new Date(String(b.dateLastCalved))    : null,
+        expectedDryOffDate: b.expectedDryOffDate ? new Date(String(b.expectedDryOffDate)) : null,
+        active:             true,
+      },
+    })
+    res.status(201).json(cow)
+  } catch (err) { next(err) }
+})
+
+// PATCH /api/dairy/cows/:id
+dairyRouter.patch('/cows/:id', async (req, res, next) => {
+  try {
+    const b = req.body as Record<string, unknown>
+    const data: Record<string, unknown> = {}
+    if (b.name               !== undefined) data.name               = String(b.name)
+    if (b.tagNumber          !== undefined) data.tagNumber          = b.tagNumber ? String(b.tagNumber) : null
+    if (b.breed              !== undefined) data.breed              = b.breed ? String(b.breed) : null
+    if (b.status             !== undefined) data.status             = String(b.status)
+    if (b.dateLastCalved     !== undefined) data.dateLastCalved     = b.dateLastCalved ? new Date(String(b.dateLastCalved)) : null
+    if (b.expectedDryOffDate !== undefined) data.expectedDryOffDate = b.expectedDryOffDate ? new Date(String(b.expectedDryOffDate)) : null
+    if (b.active             !== undefined) data.active             = Boolean(b.active)
+    const cow = await prisma.cow.update({ where: { id: req.params.id }, data })
+    res.json(cow)
+  } catch (err) { next(err) }
+})
+
+// PATCH /api/dairy/buyers/:id
+dairyRouter.patch('/buyers/:id', async (req, res, next) => {
+  try {
+    const b = req.body as Record<string, unknown>
+    const data: Record<string, unknown> = {}
+    if (b.canonicalName  !== undefined) data.canonicalName  = String(b.canonicalName)
+    if (b.paymentType    !== undefined) data.paymentType    = String(b.paymentType)
+    if (b.pricePerLitre  !== undefined) data.pricePerLitre  = b.pricePerLitre != null ? Number(b.pricePerLitre) : null
+    if (b.phone          !== undefined) data.phone          = b.phone ? String(b.phone) : null
+    if (b.active         !== undefined) data.active         = Boolean(b.active)
+    const buyer = await prisma.milkBuyer.update({ where: { id: req.params.id }, data })
+    res.json({ ...buyer, pricePerLitre: Number(buyer.pricePerLitre), currentBalance: Number(buyer.currentBalance) })
+  } catch (err) { next(err) }
+})
+
+// POST /api/dairy/cows/:id/health
+// Body: { eventDate, eventType, conditionName?, symptoms?, notes?, drugName?, durationDays?, withdrawalPeriodDays?, costKes? }
+dairyRouter.post('/cows/:id/health', async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const b = req.body as Record<string, unknown>
+
+    const event = await prisma.healthEvent.create({
+      data: {
+        cowId:         id,
+        eventDate:     new Date(String(b.eventDate)),
+        eventType:     String(b.eventType ?? 'illness'),
+        conditionName: b.conditionName ? String(b.conditionName) : null,
+        symptoms:      b.symptoms      ? String(b.symptoms)      : null,
+        notes:         b.notes         ? String(b.notes)         : null,
+      },
+    })
+
+    // If a drug is provided, create a Treatment linked to this health event
+    if (b.drugName) {
+      const durationDays         = b.durationDays         ? Number(b.durationDays)         : null
+      const withdrawalPeriodDays = b.withdrawalPeriodDays ? Number(b.withdrawalPeriodDays) : 0
+      let withdrawalEndsDate: Date | null = null
+
+      if (withdrawalPeriodDays > 0) {
+        withdrawalEndsDate = new Date(event.eventDate)
+        withdrawalEndsDate.setDate(withdrawalEndsDate.getDate() + withdrawalPeriodDays)
+      }
+
+      await prisma.treatment.create({
+        data: {
+          healthEventId:       event.id,
+          drugName:            String(b.drugName),
+          dosageRoute:         b.dosageRoute ? String(b.dosageRoute) : null,
+          durationDays:        durationDays,
+          withdrawalPeriodDays,
+          withdrawalEndsDate,
+          costKes:             b.costKes ? Number(b.costKes) : null,
+        },
+      })
+    }
+
+    const full = await prisma.healthEvent.findUnique({
+      where: { id: event.id },
+      include: { treatments: true },
+    })
+
+    res.status(201).json(full)
+  } catch (err) {
+    next(err)
+  }
+})
+
 // GET /api/dairy/cows/:id/health
 // Returns cow health events with treatments, ordered by eventDate desc.
 dairyRouter.get('/cows/:id/health', async (req, res, next) => {
@@ -359,4 +466,282 @@ dairyRouter.get('/cows/:id/health', async (req, res, next) => {
   } catch (err) {
     next(err)
   }
+})
+
+// PATCH /api/dairy/health-events/:id
+dairyRouter.patch('/health-events/:id', async (req, res, next) => {
+  try {
+    const b = req.body as Record<string, unknown>
+    const data: Record<string, unknown> = {}
+    if (b.eventDate     !== undefined) data.eventDate     = new Date(String(b.eventDate))
+    if (b.eventType     !== undefined) data.eventType     = String(b.eventType)
+    if (b.conditionName !== undefined) data.conditionName = b.conditionName ? String(b.conditionName) : null
+    if (b.symptoms      !== undefined) data.symptoms      = b.symptoms      ? String(b.symptoms)      : null
+    if (b.notes         !== undefined) data.notes         = b.notes         ? String(b.notes)         : null
+    const event = await prisma.healthEvent.update({
+      where: { id: req.params.id },
+      data,
+      include: { treatments: true },
+    })
+    res.json(event)
+  } catch (err) { next(err) }
+})
+
+// PATCH /api/dairy/treatments/:id
+dairyRouter.patch('/treatments/:id', async (req, res, next) => {
+  try {
+    const b = req.body as Record<string, unknown>
+    const data: Record<string, unknown> = {}
+    if (b.drugName            !== undefined) data.drugName            = String(b.drugName)
+    if (b.dosageRoute         !== undefined) data.dosageRoute         = b.dosageRoute ? String(b.dosageRoute) : null
+    if (b.durationDays        !== undefined) data.durationDays        = b.durationDays ? Number(b.durationDays) : null
+    if (b.withdrawalPeriodDays !== undefined) data.withdrawalPeriodDays = Number(b.withdrawalPeriodDays)
+    if (b.withdrawalEndsDate  !== undefined) data.withdrawalEndsDate  = b.withdrawalEndsDate ? new Date(String(b.withdrawalEndsDate)) : null
+    if (b.costKes             !== undefined) data.costKes             = b.costKes ? Number(b.costKes) : null
+    const tx = await prisma.treatment.update({ where: { id: req.params.id }, data })
+    res.json(tx)
+  } catch (err) { next(err) }
+})
+
+// ─── POST /api/dairy/milk ─────────────────────────────────────────────────
+// Upsert a MilkProduction record (called by sync queue from manager's IndexedDB)
+dairyRouter.post('/milk', async (req, res, next) => {
+  try {
+    const b = req.body as Record<string, unknown>
+    const productionDate = new Date(String(b.productionDate))
+    const cowId   = b.cowId   ? String(b.cowId)   : null
+    const session = String(b.session === 'AM' || b.session === 'morning' ? 'morning' : 'evening')
+
+    // Check for existing record (same date + cow + session)
+    const existing = await prisma.milkProduction.findFirst({
+      where: { productionDate, cowId: cowId ?? undefined, session },
+    })
+
+    let record
+    if (existing) {
+      record = await prisma.milkProduction.update({
+        where: { id: existing.id },
+        data: { litres: Number(b.litres) },
+      })
+    } else {
+      record = await prisma.milkProduction.create({
+        data: {
+          id:              b.id ? String(b.id) : undefined,
+          productionDate,
+          cowId,
+          session,
+          litres:          Number(b.litres),
+          withdrawalActive: Boolean(b.withdrawalActive ?? false),
+          saleable:        Boolean(b.saleable ?? true),
+          source:          b.source ? String(b.source) : 'manager',
+          createdBy:       b.createdBy ? String(b.createdBy) : null,
+        },
+      })
+    }
+    res.status(201).json(record)
+  } catch (err) { next(err) }
+})
+
+// ─── Small stock ──────────────────────────────────────────────────────────
+
+// GET /api/dairy/small-stock
+dairyRouter.get('/small-stock', async (_req, res, next) => {
+  try {
+    const animals = await prisma.smallStock.findMany({
+      where: { active: true },
+      orderBy: [{ species: 'asc' }, { name: 'asc' }],
+      include: {
+        healthEvents: {
+          orderBy: { eventDate: 'desc' },
+          take: 1,
+        },
+      },
+    })
+    res.json(animals)
+  } catch (err) { next(err) }
+})
+
+// PATCH /api/dairy/small-stock/:id
+dairyRouter.patch('/small-stock/:id', async (req, res, next) => {
+  try {
+    const b = req.body as Record<string, unknown>
+    const data: Record<string, unknown> = {}
+    if (b.name        !== undefined) data.name        = b.name        ? String(b.name)        : null
+    if (b.tagNumber   !== undefined) data.tagNumber   = b.tagNumber   ? String(b.tagNumber)   : null
+    if (b.status      !== undefined) data.status      = String(b.status)
+    if (b.dateOfBirth !== undefined) data.dateOfBirth = b.dateOfBirth ? new Date(String(b.dateOfBirth)) : null
+    if (b.notes       !== undefined) data.notes       = b.notes       ? String(b.notes)       : null
+    const animal = await prisma.smallStock.update({ where: { id: req.params.id }, data })
+    res.json(animal)
+  } catch (err) { next(err) }
+})
+
+// GET /api/dairy/small-stock/:id/health
+dairyRouter.get('/small-stock/:id/health', async (req, res, next) => {
+  try {
+    const animal = await prisma.smallStock.findUnique({
+      where: { id: req.params.id },
+      include: {
+        healthEvents: { orderBy: { eventDate: 'desc' } },
+      },
+    })
+    if (!animal) { res.status(404).json({ error: 'Not found' }); return }
+    res.json(animal)
+  } catch (err) { next(err) }
+})
+
+// POST /api/dairy/small-stock/:id/health
+dairyRouter.post('/small-stock/:id/health', async (req, res, next) => {
+  try {
+    const b = req.body as Record<string, unknown>
+    const event = await prisma.smallStockHealthEvent.create({
+      data: {
+        animalId:      req.params.id,
+        eventDate:     new Date(String(b.eventDate)),
+        eventType:     String(b.eventType ?? 'routine'),
+        conditionName: b.conditionName ? String(b.conditionName) : null,
+        symptoms:      b.symptoms      ? String(b.symptoms)      : null,
+        drugName:      b.drugName      ? String(b.drugName)      : null,
+        costKes:       b.costKes       ? Number(b.costKes)       : null,
+        notes:         b.notes         ? String(b.notes)         : null,
+      },
+    })
+    res.status(201).json(event)
+  } catch (err) { next(err) }
+})
+
+// PATCH /api/dairy/small-stock/health/:id
+dairyRouter.patch('/small-stock/health/:id', async (req, res, next) => {
+  try {
+    const b = req.body as Record<string, unknown>
+    const data: Record<string, unknown> = {}
+    if (b.eventDate     !== undefined) data.eventDate     = new Date(String(b.eventDate))
+    if (b.eventType     !== undefined) data.eventType     = String(b.eventType)
+    if (b.conditionName !== undefined) data.conditionName = b.conditionName ? String(b.conditionName) : null
+    if (b.symptoms      !== undefined) data.symptoms      = b.symptoms      ? String(b.symptoms)      : null
+    if (b.drugName      !== undefined) data.drugName      = b.drugName      ? String(b.drugName)      : null
+    if (b.costKes       !== undefined) data.costKes       = b.costKes       ? Number(b.costKes)       : null
+    if (b.notes         !== undefined) data.notes         = b.notes         ? String(b.notes)         : null
+    const event = await prisma.smallStockHealthEvent.update({ where: { id: req.params.id }, data })
+    res.json(event)
+  } catch (err) { next(err) }
+})
+
+// ─── Milk receipts (Mborugu Dairy FCS cooperative) ────────────────────────
+
+// POST /api/dairy/receipts/scan
+// Body: { imageData: "data:image/jpeg;base64,..." }
+// Parses the receipt photo with Claude vision and saves as pending.
+dairyRouter.post('/receipts/scan', async (req, res, next) => {
+  try {
+    const { imageData } = req.body as { imageData: string }
+    if (!imageData) { res.status(400).json({ error: 'imageData required' }); return }
+
+    // Strip data URI prefix to get pure base64
+    const base64 = imageData.replace(/^data:image\/\w+;base64,/, '')
+    const mimeMatch = imageData.match(/^data:(image\/\w+);base64,/)
+    const mediaType = (mimeMatch?.[1] ?? 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/webp'
+
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 300,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: mediaType, data: base64 },
+          },
+          {
+            type: 'text',
+            text: `Extract data from this milk cooperative receipt. Return ONLY valid JSON with these fields:
+{
+  "receiptNo": "string or null",
+  "supplierNo": "string or null",
+  "supplierName": "string or null",
+  "shift": "AM or PM or null",
+  "quantityKg": number or null,
+  "cumulativeKg": number or null,
+  "station": "string or null",
+  "receiptDate": "YYYY-MM-DD or null"
+}
+No explanation, just JSON.`,
+          },
+        ],
+      }],
+    })
+
+    let parsed: Record<string, unknown> = {}
+    try {
+      const text = response.content[0].type === 'text' ? response.content[0].text : ''
+      parsed = JSON.parse(text.replace(/```json\n?|\n?```/g, '').trim())
+    } catch {
+      // If parsing fails, save with just image for manual fill
+    }
+
+    const receipt = await prisma.milkReceipt.create({
+      data: {
+        receiptNo:    parsed.receiptNo    ? String(parsed.receiptNo)    : null,
+        supplierNo:   parsed.supplierNo   ? String(parsed.supplierNo)   : null,
+        supplierName: parsed.supplierName ? String(parsed.supplierName) : null,
+        shift:        parsed.shift        ? String(parsed.shift)        : null,
+        quantityKg:   parsed.quantityKg   ? Number(parsed.quantityKg)   : null,
+        cumulativeKg: parsed.cumulativeKg ? Number(parsed.cumulativeKg) : null,
+        station:      parsed.station      ? String(parsed.station)      : null,
+        receiptDate:  parsed.receiptDate  ? new Date(String(parsed.receiptDate)) : null,
+        imageData,
+        status: 'pending',
+      },
+    })
+
+    res.status(201).json({ ...receipt, quantityKg: receipt.quantityKg ? Number(receipt.quantityKg) : null, cumulativeKg: receipt.cumulativeKg ? Number(receipt.cumulativeKg) : null })
+  } catch (err) { next(err) }
+})
+
+// GET /api/dairy/receipts?status=pending
+dairyRouter.get('/receipts', async (req, res, next) => {
+  try {
+    const status = req.query.status ? String(req.query.status) : 'pending'
+    const receipts = await prisma.milkReceipt.findMany({
+      where: status === 'all' ? {} : { status },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    })
+    res.json(receipts.map(r => ({
+      ...r,
+      quantityKg:   r.quantityKg   ? Number(r.quantityKg)   : null,
+      cumulativeKg: r.cumulativeKg ? Number(r.cumulativeKg) : null,
+      imageData: undefined, // don't send image in list
+    })))
+  } catch (err) { next(err) }
+})
+
+// PATCH /api/dairy/receipts/:id  — confirm or edit a pending receipt
+// Body: { status?, receiptNo?, supplierNo?, supplierName?, shift?, quantityKg?, cumulativeKg?, station?, receiptDate?, notes? }
+dairyRouter.patch('/receipts/:id', async (req, res, next) => {
+  try {
+    const b = req.body as Record<string, unknown>
+    const data: Record<string, unknown> = {}
+    if (b.receiptNo    !== undefined) data.receiptNo    = b.receiptNo    ? String(b.receiptNo)    : null
+    if (b.supplierNo   !== undefined) data.supplierNo   = b.supplierNo   ? String(b.supplierNo)   : null
+    if (b.supplierName !== undefined) data.supplierName = b.supplierName ? String(b.supplierName) : null
+    if (b.shift        !== undefined) data.shift        = b.shift        ? String(b.shift)        : null
+    if (b.quantityKg   !== undefined) data.quantityKg   = b.quantityKg   ? Number(b.quantityKg)   : null
+    if (b.cumulativeKg !== undefined) data.cumulativeKg = b.cumulativeKg ? Number(b.cumulativeKg) : null
+    if (b.station      !== undefined) data.station      = b.station      ? String(b.station)      : null
+    if (b.receiptDate  !== undefined) data.receiptDate  = b.receiptDate  ? new Date(String(b.receiptDate)) : null
+    if (b.notes        !== undefined) data.notes        = b.notes        ? String(b.notes)        : null
+    if (b.status       !== undefined) {
+      data.status = String(b.status)
+      if (b.status === 'confirmed') {
+        data.confirmedAt = new Date()
+        data.imageData   = null  // drop image after confirmation
+      }
+    }
+    const receipt = await prisma.milkReceipt.update({
+      where: { id: req.params.id },
+      data,
+    })
+    res.json({ ...receipt, quantityKg: receipt.quantityKg ? Number(receipt.quantityKg) : null, cumulativeKg: receipt.cumulativeKg ? Number(receipt.cumulativeKg) : null })
+  } catch (err) { next(err) }
 })

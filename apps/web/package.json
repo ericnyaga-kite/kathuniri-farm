@@ -10,14 +10,18 @@
   },
   "dependencies": {
     "@kathuniri/shared": "*",
+    "@react-oauth/google": "^0.13.4",
+    "@types/leaflet": "^1.9.21",
     "dexie": "^4.0.0",
     "dexie-react-hooks": "^1.1.7",
+    "leaflet": "^1.9.4",
     "mapbox-gl": "^3.0.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
+    "react-leaflet": "^4.2.1",
     "react-router-dom": "^6.0.0",
-    "zustand": "^4.5.0",
-    "zod": "^3.22.0"
+    "zod": "^3.22.0",
+    "zustand": "^4.5.0"
   },
   "devDependencies": {
     "@types/mapbox-gl": "^3.0.0",

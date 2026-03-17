@@ -6,36 +6,22 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('Seeding Kathuniri Farm database...')
 
-  // ─── COLLECTION CENTRE ───────────────────────────────────────────────────
+  // ─── COLLECTION CENTRES (sub-sectors) ────────────────────────────────────
+  // Factory: Kathangariri (F064). Sectors below are the actual picking areas.
   const centres = [
-    {
-      canonicalName: 'Mukinduriri',
-      alternateSpellings: ['MUKINDURIRI', 'mukinduriri', 'Mukinduri'],
-    },
-    {
-      canonicalName: 'Kathuniri',
-      alternateSpellings: ['KATHUNIRI', 'kathuniri', 'Kathangariri', 'KATHANGARIRI', 'Kathangari'],
-    },
-    {
-      canonicalName: 'Kamwangi',
-      alternateSpellings: ['KAMWANGI', 'kamwangi'],
-    },
-    {
-      canonicalName: 'Mucucari',
-      alternateSpellings: ['MUCUCARI', 'mucucari', 'Mucucari'],
-    },
-    {
-      canonicalName: 'Mutarakwe',
-      alternateSpellings: ['MUTARAKWE', 'mutarakwe'],
-    },
-    {
-      canonicalName: 'Shule',
-      alternateSpellings: ['SHULE', 'shule'],
-    },
-    {
-      canonicalName: 'Newtea',
-      alternateSpellings: ['NEWTEA', 'newtea', 'New Tea'],
-    },
+    { canonicalName: 'Mucucari A',    alternateSpellings: ['MUCUCARI A',    'mucucari a',    'Mucucari A'] },
+    { canonicalName: 'Mucucari B',    alternateSpellings: ['MUCUCARI B',    'mucucari b',    'Mucucari B'] },
+    { canonicalName: 'Kathuniri A',   alternateSpellings: ['KATHUNIRI A',   'kathuniri a',   'Kathuniri A'] },
+    { canonicalName: 'Kathuniri B',   alternateSpellings: ['KATHUNIRI B',   'kathuniri b',   'Kathuniri B'] },
+    { canonicalName: 'Kathuniri C',   alternateSpellings: ['KATHUNIRI C',   'kathuniri c',   'Kathuniri C'] },
+    { canonicalName: 'Shule',         alternateSpellings: ['SHULE',         'shule'] },
+    { canonicalName: 'New Tea',       alternateSpellings: ['NEW TEA',       'new tea',       'Newtea', 'NEWTEA'] },
+    { canonicalName: 'Mukinduriri A', alternateSpellings: ['MUKINDURIRI A', 'mukinduriri a', 'Mukinduri A'] },
+    { canonicalName: 'Mukinduriri B', alternateSpellings: ['MUKINDURIRI B', 'mukinduriri b', 'Mukinduri B'] },
+    { canonicalName: 'Mutarakwe A',   alternateSpellings: ['MUTARAKWE A',   'mutarakwe a',   'Mutarakwe A'] },
+    { canonicalName: 'Mutarakwe B',   alternateSpellings: ['MUTARAKWE B',   'mutarakwe b',   'Mutarakwe B'] },
+    { canonicalName: 'Kamwangi A',    alternateSpellings: ['KAMWANGI A',    'kamwangi a',    'Kamwangi A'] },
+    { canonicalName: 'Kamwangi B',    alternateSpellings: ['KAMWANGI B',    'kamwangi b',    'Kamwangi B'] },
   ]
 
   for (const centre of centres) {

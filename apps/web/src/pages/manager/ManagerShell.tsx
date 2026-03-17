@@ -5,71 +5,86 @@ import { useLang } from '../../store/langStore'
 import { MilkEntryPage } from './MilkEntryPage'
 import { PickingEntryPage } from './PickingEntryPage'
 import { HomePage } from './HomePage'
+import { DailyLogPage } from './DailyLogPage'
+import { FarmMapPage } from './FarmMapPage'
+import { PlotDetailPage } from './PlotDetailPage'
 
 export function ManagerShell() {
-  const { user } = useAuthStore()
+  const { user, logout } = useAuthStore()
   const { lang, init, toggle, t } = useLang()
 
   useEffect(() => {
     if (user?.id) init(user.id)
   }, [user?.id])
 
-  function handleToggle() {
-    if (user?.id) toggle(user.id)
-  }
-
   return (
     <div className="flex flex-col min-h-screen">
-      <main className="flex-1 overflow-y-auto pb-20">
+      {/* Slim top bar: name + lang + logout */}
+      <header className="bg-green-700 text-white px-4 py-2 flex items-center justify-between">
+        <p className="text-sm font-semibold opacity-90">
+          🌿 {user?.name ?? 'Msimamizi'}
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => { if (user?.id) toggle(user.id) }}
+            className="text-xs bg-green-600 hover:bg-green-500 px-2 py-1 rounded-lg font-semibold tracking-wide"
+          >
+            {lang === 'en' ? 'SW' : 'EN'}
+          </button>
+          <button onClick={logout} className="text-xs opacity-75 hover:opacity-100 underline">
+            {t('Sign out', 'Toka')}
+          </button>
+        </div>
+      </header>
+
+      <main className="flex-1 overflow-y-auto pb-24">
         <Routes>
-          <Route index element={<HomePage />} />
-          <Route path="maziwa" element={<MilkEntryPage />} />
-          <Route path="chai" element={<PickingEntryPage />} />
+          <Route index             element={<HomePage />} />
+          <Route path="maziwa"    element={<MilkEntryPage />} />
+          <Route path="chai"      element={<PickingEntryPage />} />
+          <Route path="log"       element={<DailyLogPage />} />
+          <Route path="shamba"    element={<FarmMapPage />} />
+          <Route path="shamba/:plotId" element={<PlotDetailPage />} />
         </Routes>
       </main>
 
+      {/* Bottom nav — 4 items */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 grid grid-cols-4 h-20">
-        <NavLink
-          to="/manager"
-          end
+        <NavLink to="/manager" end
           className={({ isActive }) =>
-            `flex flex-col items-center justify-center gap-1 text-xs font-medium ${
-              isActive ? 'text-green-700' : 'text-gray-500'
-            }`
+            `flex flex-col items-center justify-center gap-1 text-xs font-medium ${isActive ? 'text-green-700' : 'text-gray-500'}`
           }
         >
           <span className="text-2xl">🏠</span>
           {t('Home', 'Nyumbani')}
         </NavLink>
-        <NavLink
-          to="/manager/maziwa"
+
+        <NavLink to="/manager/maziwa"
           className={({ isActive }) =>
-            `flex flex-col items-center justify-center gap-1 text-xs font-medium ${
-              isActive ? 'text-green-700' : 'text-gray-500'
-            }`
+            `flex flex-col items-center justify-center gap-1 text-xs font-medium ${isActive ? 'text-green-700' : 'text-gray-500'}`
           }
         >
           <span className="text-2xl">🥛</span>
           {t('Milk', 'Maziwa')}
         </NavLink>
-        <NavLink
-          to="/manager/chai"
+
+        <NavLink to="/manager/chai"
           className={({ isActive }) =>
-            `flex flex-col items-center justify-center gap-1 text-xs font-medium ${
-              isActive ? 'text-green-700' : 'text-gray-500'
-            }`
+            `flex flex-col items-center justify-center gap-1 text-xs font-medium ${isActive ? 'text-green-700' : 'text-gray-500'}`
           }
         >
           <span className="text-2xl">🍃</span>
           {t('Tea', 'Chai')}
         </NavLink>
-        <button
-          onClick={handleToggle}
-          className="flex flex-col items-center justify-center gap-1 text-xs font-medium text-gray-500"
+
+        <NavLink to="/manager/shamba"
+          className={({ isActive }) =>
+            `flex flex-col items-center justify-center gap-1 text-xs font-medium ${isActive ? 'text-green-700' : 'text-gray-500'}`
+          }
         >
-          <span className="text-2xl">🌐</span>
-          {lang === 'en' ? 'SW' : 'EN'}
-        </button>
+          <span className="text-2xl">🌾</span>
+          {t('Farm', 'Shamba')}
+        </NavLink>
       </nav>
     </div>
   )

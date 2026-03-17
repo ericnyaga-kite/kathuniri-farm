@@ -101,14 +101,33 @@ model PickerRecord {
   @@map("picker_records")
 }
 
+model ViewerPermission {
+  id       String   @id @default(uuid())
+  email    String   @unique
+  name     String?
+  addedAt  DateTime @default(now())
+  addedBy  String   @default("owner")
+
+  @@map("viewer_permissions")
+}
+
 // Stores SMS from senders that reached the server but have no parser configured.
 // Use this to inspect test messages or new data sources before wiring up a parser.
+model SystemConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("system_configs")
+}
+
 model SmsHoldingRecord {
   id          String   @id @default(uuid())
   receivedAt  DateTime
   senderPhone String
   rawSms      String
-  note        String?  // e.g. "test", future parser name
+  source      String   @default("live") // live | test | historical
+  note        String?
   createdAt   DateTime @default(now())
 
   @@map("sms_holding_records")
@@ -121,6 +140,7 @@ model TeaSmsRecord {
   rawSms      String
   parsed      Boolean  @default(false)
   parseError  String?
+  source      String   @default("live") // live | test | historical
   createdAt   DateTime @default(now())
 
   deliveries TeaSmsDelivery[]
@@ -373,6 +393,8 @@ model Plot {
   plotType       String
   areaHa         Decimal? @db.Decimal(8, 4)
   boundaryGeojson Json?
+  lat            Float?
+  lng            Float?
   currentCrop    String?
   active         Boolean  @default(true)
   notes          String?
@@ -795,6 +817,73 @@ model IngestQueue {
   @@map("ingest_queue")
 }
 
+// ─── DAILY LOG (structured unstructured capture) ────────────────────────────
+
+model DailyLog {
+  id        String   @id @default(uuid())
+  logDate   DateTime @db.Date
+  category  String   // tea | dairy | rental | crops | machinery | staff | general
+  plotId    String?  // optional link to a farm plot
+  title     String?
+  body      String
+  photoId   String?
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@index([logDate])
+  @@index([category])
+  @@map("daily_logs")
+}
+
+// ─── PLOT MEDIA ──────────────────────────────────────────────────────────────
+
+model PlotMedia {
+  id        String   @id @default(uuid())
+  plotId    String
+  logId     String?
+  dataUrl   String   @db.Text // base64 JPEG data URL — video deferred to R2
+  mimeType  String   @default("image/jpeg")
+  note      String?
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@index([plotId])
+  @@map("plot_media")
+}
+
+// ─── MACHINERY ───────────────────────────────────────────────────────────────
+
+model Machinery {
+  id           String    @id @default(uuid())
+  name         String
+  serialNumber String?
+  purchaseDate DateTime? @db.Date
+  status       String    @default("operational") // operational | repair | retired
+  notes        String?
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  repairLogs MachineryLog[]
+
+  @@map("machinery")
+}
+
+model MachineryLog {
+  id          String   @id @default(uuid())
+  machineryId String
+  logDate     DateTime @db.Date
+  logType     String   // service | repair | fuel | other
+  description String
+  costKes     Decimal? @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+
+  machinery Machinery @relation(fields: [machineryId], references: [id])
+
+  @@index([machineryId])
+  @@map("machinery_logs")
+}
+
 // ─── SMALL STOCK ─────────────────────────────────────────────────────────────
 
 model SmallStock {
@@ -834,4 +923,26 @@ model SmallStockHealthEvent {
   @@index([animalId])
   @@index([eventDate])
   @@map("small_stock_health_events")
+}
+
+model MilkReceipt {
+  id           String    @id @default(uuid())
+  receiptNo    String?
+  supplierNo   String?
+  supplierName String?
+  shift        String?
+  quantityKg   Decimal?  @db.Decimal(6, 2)
+  cumulativeKg Decimal?  @db.Decimal(6, 2)
+  station      String?
+  receiptDate  DateTime? @db.Date
+  status       String    @default("pending")  // pending | confirmed | rejected
+  imageData    String?   @db.Text
+  confirmedAt  DateTime?
+  confirmedBy  String?
+  notes        String?
+  createdAt    DateTime  @default(now())
+
+  @@index([status])
+  @@index([receiptDate])
+  @@map("milk_receipts")
 }

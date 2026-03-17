@@ -4,8 +4,13 @@ import { useAuthStore } from '../../store/authStore'
 import { useLang } from '../../store/langStore'
 import { TeaPage } from './TeaPage'
 import { DairyPage } from './DairyPage'
+import { CowDetailPage } from './CowDetailPage'
 import { RentalPage } from './RentalPage'
 import { StaffPage } from './StaffPage'
+import { SettingsPage } from './SettingsPage'
+import { OwnerFarmPage, OwnerPlotDetailPage } from './FarmPage'
+import { DailyReportPage } from './DailyReportPage'
+import { SmallStockPage } from './SmallStockPage'
 
 function OwnerHome() {
   const { user } = useAuthStore()
@@ -20,7 +25,11 @@ function OwnerHome() {
           { to: 'chai',   icon: '🍃', label: t('Tea', 'Chai') },
           { to: 'maziwa', icon: '🥛', label: t('Dairy', 'Maziwa') },
           { to: 'nyumba', icon: '🏠', label: t('Rental', 'Nyumba') },
-          { to: 'staff',  icon: '👷', label: t('Staff', 'Wafanyakazi') },
+          { to: 'staff',    icon: '👷', label: t('Staff', 'Wafanyakazi') },
+          { to: 'shamba',   icon: '🌾', label: t('Farm Map', 'Ramani') },
+          { to: 'mifugo',   icon: '🐑', label: t('Small Stock', 'Mifugo') },
+          { to: 'ripoti',   icon: '📋', label: t('Daily Report', 'Ripoti') },
+          { to: 'settings', icon: '⚙️', label: t('Settings', 'Mipangilio') },
         ].map(item => (
           <NavLink
             key={item.to}
@@ -69,9 +78,15 @@ export function OwnerShell() {
         <Routes>
           <Route index element={<OwnerHome />} />
           <Route path="chai"   element={<TeaPage />} />
-          <Route path="maziwa" element={<DairyPage />} />
+          <Route path="maziwa"          element={<DairyPage />} />
+          <Route path="maziwa/:cowId"   element={<CowDetailPage />} />
           <Route path="nyumba" element={<RentalPage />} />
-          <Route path="staff"  element={<StaffPage />} />
+          <Route path="staff"           element={<StaffPage />} />
+          <Route path="shamba"          element={<OwnerFarmPage />} />
+          <Route path="shamba/:plotId"  element={<OwnerPlotDetailPage />} />
+          <Route path="mifugo"          element={<SmallStockPage />} />
+          <Route path="ripoti"          element={<DailyReportPage />} />
+          <Route path="settings"        element={<SettingsPage />} />
         </Routes>
       </main>
     </div>
