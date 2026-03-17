@@ -371,9 +371,9 @@ function RoomCard({ room, year, month, onRefresh, t }: {
   }
 
   return (
-    <div className={`bg-white rounded-2xl border p-4 ${isPartial ? 'border-amber-200' : room.outstandingMonths > 0 && room.occupancyStatus === 'occupied' && !isFullyPaid ? 'border-red-200' : 'border-gray-200'}`}>
+    <div className={`bg-white rounded-2xl border p-3 ${isPartial ? 'border-amber-200' : room.outstandingMonths > 0 && room.occupancyStatus === 'occupied' && !isFullyPaid ? 'border-red-200' : 'border-gray-200'}`}>
       {/* Header */}
-      <div className="flex justify-between items-start mb-2">
+      <div className="flex justify-between items-start mb-1.5">
         <div>
           <p className="font-bold text-gray-800">
             {t('Room', 'Chumba')} {room.roomNumber}
@@ -533,9 +533,9 @@ export function RentalPage() {
         ))}
       </div>
 
-      <div className="p-4 max-w-2xl mx-auto">
+      <div className="p-3 max-w-2xl mx-auto">
         {/* Month nav */}
-        <div className="flex items-center justify-between bg-white rounded-2xl border border-gray-200 p-3 mb-5">
+        <div className="flex items-center justify-between bg-white rounded-2xl border border-gray-200 p-2 mb-3">
           <button onClick={prevMonth} className="w-10 h-10 flex items-center justify-center text-xl text-green-700">‹</button>
           <span className="font-semibold text-gray-800">{monthName} {year}</span>
           <button onClick={nextMonth} disabled={isCurrentMonth}
@@ -545,7 +545,7 @@ export function RentalPage() {
         {/* ── Rooms tab ── */}
         {tab === 'rooms' && (
           <>
-            <h1 className="text-xl font-bold text-green-800 mb-4">{t('Rental Rooms', 'Vyumba vya Kupangisha')}</h1>
+            <h1 className="text-xl font-bold text-green-800 mb-3">{t('Rental Rooms', 'Vyumba vya Kupangisha')}</h1>
             {loading
               ? <div className="text-center py-8 text-gray-400">{t('Loading...', 'Inapakia...')}</div>
               : <div className="space-y-3">
@@ -595,7 +595,7 @@ export function RentalPage() {
               {summary.rooms.map(r => {
                 const totalPaid = r.payments.reduce((s, p) => s + p.totalAmountKes, 0)
                 return (
-                  <div key={r.id} className="flex justify-between items-center bg-white rounded-xl border border-gray-200 px-4 py-3 text-sm">
+                  <div key={r.id} className="flex justify-between items-center bg-white rounded-xl border border-gray-200 px-3 py-2 text-sm">
                     <div>
                       <span className="font-semibold text-gray-800">{t('Room', 'Chumba')} {r.roomNumber}</span>
                       {r.tenantName && <span className="text-gray-400 ml-2 text-xs">{r.tenantName}</span>}

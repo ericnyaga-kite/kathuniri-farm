@@ -123,9 +123,9 @@ function WriteTab({ t, lang }: { t: (en: string, sw: string) => string; lang: st
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       {/* Note about expenses */}
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-start gap-2">
+      <div className="bg-amber-50 border border-amber-200 rounded-2xl px-3 py-2 flex items-start gap-2">
         <span className="text-lg">💡</span>
         <p className="text-xs text-amber-800 leading-relaxed">
           {t(
@@ -135,16 +135,16 @@ function WriteTab({ t, lang }: { t: (en: string, sw: string) => string; lang: st
         </p>
       </div>
 
-      {/* Category */}
+      {/* Category — horizontal scroll */}
       <div>
-        <p className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wide">{t('Category', 'Kitengo')}</p>
-        <div className="grid grid-cols-4 gap-2">
+        <p className="text-xs text-gray-500 mb-1.5 font-semibold uppercase tracking-wide">{t('Category', 'Kitengo')}</p>
+        <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-hide">
           {CATEGORIES.map(c => (
             <button key={c.key} onClick={() => setCategory(c.key)}
-              className={`flex flex-col items-center gap-1 py-3 rounded-2xl border-2 transition-colors text-xs font-semibold ${
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-2xl border-2 transition-colors text-xs font-semibold ${
                 category === c.key ? 'border-purple-600 bg-purple-50 text-purple-700' : 'border-gray-200 bg-white text-gray-600'
               }`}>
-              <span className="text-2xl">{c.icon}</span>
+              <span className="text-base">{c.icon}</span>
               {lang === 'en' ? c.en : c.sw}
             </button>
           ))}
@@ -162,9 +162,9 @@ function WriteTab({ t, lang }: { t: (en: string, sw: string) => string; lang: st
       {/* Body */}
       <div>
         <p className="text-xs text-gray-500 mb-1 font-semibold uppercase tracking-wide">{t('Details', 'Maelezo')}</p>
-        <textarea value={body} onChange={e => setBody(e.target.value)} rows={5}
+        <textarea value={body} onChange={e => setBody(e.target.value)} rows={4}
           placeholder={t('Write what happened…', 'Andika kilichotokea…')}
-          className="w-full border border-gray-300 rounded-2xl px-4 py-3 text-sm resize-none" />
+          className="w-full border border-gray-300 rounded-2xl px-3 py-2 text-sm resize-none" />
       </div>
 
       {error && <p className="text-xs text-red-600">{error}</p>}
@@ -184,16 +184,16 @@ export function DailyLogPage() {
   const [tab, setTab] = useState<'write' | 'history'>('write')
 
   return (
-    <div className="p-4 max-w-md mx-auto">
-      <h1 className="text-xl font-bold text-green-800 mb-4">{t('Daily Log', 'Kumbukumbu')}</h1>
+    <div className="p-3 max-w-md mx-auto">
+      <h1 className="text-xl font-bold text-green-800 mb-3">{t('Daily Log', 'Kumbukumbu')}</h1>
 
-      <div className="flex gap-2 mb-5">
+      <div className="flex gap-2 mb-3">
         <button onClick={() => setTab('write')}
-          className={`flex-1 py-3 rounded-2xl text-sm font-bold ${tab === 'write' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+          className={`flex-1 py-2 rounded-2xl text-sm font-bold ${tab === 'write' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
           ✏️ {t('Write', 'Andika')}
         </button>
         <button onClick={() => setTab('history')}
-          className={`flex-1 py-3 rounded-2xl text-sm font-bold ${tab === 'history' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+          className={`flex-1 py-2 rounded-2xl text-sm font-bold ${tab === 'history' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
           📖 {t('History', 'Historia')}
         </button>
       </div>

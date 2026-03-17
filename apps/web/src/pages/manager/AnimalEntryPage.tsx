@@ -124,41 +124,41 @@ function HaliTab({ t, cows, loading }: { t: (en: string, sw: string) => string; 
   )
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       {/* Cow selector */}
       <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
           {t('Cow', 'Ng\'ombe')}
         </p>
         {loading ? (
           <p className="text-sm text-gray-400">{t('Loading…', 'Inapakia…')}</p>
         ) : (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-hide">
             {cows.map(c => (
               <button key={c.id} onClick={() => setCowId(c.id)}
-                className={`px-4 py-3 rounded-2xl font-bold text-sm border-2 transition-all ${
+                className={`flex-shrink-0 px-3 py-2 rounded-2xl font-bold text-sm border-2 transition-all ${
                   cowId === c.id ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-700 border-gray-200'
                 }`}>
                 🐄 {c.name}{c.tagNumber ? ` (${c.tagNumber})` : ''}
               </button>
             ))}
-            {cows.length === 0 && <p className="text-sm text-gray-400">{t('No cows found', 'Hakuna ng\'ombe')}</p>}
+            {cows.length === 0 && <p className="text-sm text-gray-400 flex-shrink-0">{t('No cows found', 'Hakuna ng\'ombe')}</p>}
           </div>
         )}
       </div>
 
       {/* Event type grid */}
       <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
           {t('Event Type', 'Aina ya Tukio')}
         </p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           {EVENT_TYPES.map(ev => (
             <button key={ev.key} onClick={() => setEventType(ev.key)}
-              className={`flex items-center gap-2 px-4 py-4 rounded-2xl border-2 font-bold text-sm transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-2xl border-2 font-bold text-sm transition-all ${
                 eventType === ev.key ? ev.color + ' border-current shadow-sm' : 'bg-gray-50 text-gray-600 border-gray-200'
               }`}>
-              <span className="text-2xl">{ev.icon}</span>
+              <span className="text-xl">{ev.icon}</span>
               <span className="text-left leading-tight">
                 {t(ev.en, ev.sw)}
               </span>
@@ -209,13 +209,13 @@ function HaliTab({ t, cows, loading }: { t: (en: string, sw: string) => string; 
           </p>
           <div className="flex gap-3">
             <button onClick={() => setCalfSex('M')}
-              className={`flex-1 py-4 rounded-2xl font-bold text-lg border-2 transition-all ${
+              className={`flex-1 py-2.5 rounded-2xl font-bold text-base border-2 transition-all ${
                 calfSex === 'M' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200'
               }`}>
               ♂ {t('Male', 'Dume')}
             </button>
             <button onClick={() => setCalfSex('F')}
-              className={`flex-1 py-4 rounded-2xl font-bold text-lg border-2 transition-all ${
+              className={`flex-1 py-2.5 rounded-2xl font-bold text-base border-2 transition-all ${
                 calfSex === 'F' ? 'bg-pink-500 text-white border-pink-500' : 'bg-white text-gray-700 border-gray-200'
               }`}>
               ♀ {t('Female', 'Jike')}
@@ -229,9 +229,9 @@ function HaliTab({ t, cows, loading }: { t: (en: string, sw: string) => string; 
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
           {t('Notes', 'Maelezo')} <span className="text-gray-400 normal-case">({t('optional', 'si lazima')})</span>
         </p>
-        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
+        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
           placeholder={t('Any observations…', 'Maelezo yoyote…')}
-          className="w-full border border-gray-300 rounded-2xl px-4 py-3 text-sm resize-none" />
+          className="w-full border border-gray-300 rounded-2xl px-3 py-2 text-sm resize-none" />
       </div>
 
       {/* Date */}
@@ -246,7 +246,7 @@ function HaliTab({ t, cows, loading }: { t: (en: string, sw: string) => string; 
       {error && <p className="text-red-600 text-sm text-center">{error}</p>}
 
       <button onClick={handleSave} disabled={saving || !cowId || !eventType}
-        className="w-full bg-green-700 text-white font-bold py-5 rounded-2xl text-lg disabled:opacity-40">
+        className="w-full bg-green-700 text-white font-bold py-3 rounded-2xl text-base disabled:opacity-40">
         {saving ? t('Saving…', 'Inahifadhi…') : `✓ ${t('Save', 'Hifadhi')}`}
       </button>
     </div>
@@ -352,8 +352,8 @@ export function AnimalEntryPage() {
   ]
 
   return (
-    <div className="p-4 max-w-md mx-auto">
-      <div className="mb-4">
+    <div className="p-3 max-w-md mx-auto">
+      <div className="mb-3">
         <h1 className="text-xl font-bold text-green-800">{t('Animals', 'Wanyama')}</h1>
         <p className="text-xs text-gray-400">
           {new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
@@ -361,10 +361,10 @@ export function AnimalEntryPage() {
       </div>
 
       {/* Tab switcher */}
-      <div className="flex gap-2 mb-5">
+      <div className="flex gap-2 mb-3">
         {TABS.map(tb => (
           <button key={tb.key} onClick={() => setTab(tb.key)}
-            className={`flex-1 py-3 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex-1 py-2 rounded-2xl text-sm font-bold transition-all ${
               tab === tb.key ? 'bg-green-700 text-white shadow' : 'bg-gray-100 text-gray-600'
             }`}>
             {tb.icon} {t(tb.en, tb.sw)}

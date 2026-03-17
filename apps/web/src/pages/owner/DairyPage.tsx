@@ -70,37 +70,25 @@ function StatusPill({ status, withdrawalActive, withdrawalEndsDate, t }: {
 
 function CowCard({ cow, t, onClick }: { cow: Cow; t: (en: string, sw: string) => string; onClick: () => void }) {
   return (
-    <div onClick={onClick} className={`bg-white rounded-2xl border p-4 cursor-pointer active:scale-95 transition-transform ${cow.withdrawalActive ? 'border-red-200' : 'border-gray-200'}`}>
-      <div className="flex justify-between items-start mb-2">
-        <div>
-          <p className="font-bold text-gray-800 text-lg">{cow.name}</p>
-          {cow.breed && <p className="text-xs text-gray-400">{cow.breed}</p>}
-        </div>
-        <StatusPill status={cow.status} withdrawalActive={cow.withdrawalActive} withdrawalEndsDate={cow.withdrawalEndsDate} t={t} />
-      </div>
-
-      <div className="flex gap-4 text-sm">
-        <div>
-          <p className="text-xs text-gray-400">{t('Last 7 days', 'Siku 7 zilizopita')}</p>
-          <p className="text-2xl font-bold text-green-700">{cow.last7DaysLitres}<span className="text-sm font-normal text-gray-500 ml-1">L</span></p>
-        </div>
-        {cow.dateLastCalved && (
-          <div>
-            <p className="text-xs text-gray-400">{t('Last calved', 'Aliyezaa mwisho')}</p>
-            <p className="text-sm font-medium text-gray-700">{new Date(cow.dateLastCalved).toLocaleDateString(undefined, { day:'numeric', month:'short' })}</p>
+    <div onClick={onClick} className={`bg-white rounded-2xl border cursor-pointer active:scale-95 transition-transform ${cow.withdrawalActive ? 'border-red-200' : 'border-gray-200'}`}>
+      <div className="flex items-center gap-2 px-3 py-2.5">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-bold text-gray-800">{cow.name}</p>
+            {cow.breed && <span className="text-xs text-gray-400">{cow.breed}</span>}
           </div>
-        )}
-      </div>
-
-      {cow.withdrawalActive && cow.withdrawalEndsDate && (
-        <div className="mt-3 bg-red-50 rounded-xl p-2 text-xs text-red-700">
-          ⚠️ {t('Milk not saleable until', 'Maziwa hayauziwe hadi')} {new Date(cow.withdrawalEndsDate).toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' })}
+          {cow.dateLastCalved && (
+            <p className="text-xs text-gray-400">{t('Calved', 'Alizaa')}: {new Date(cow.dateLastCalved).toLocaleDateString(undefined, { day:'numeric', month:'short' })}</p>
+          )}
         </div>
-      )}
-
-      {cow.latestHealthEvent && !cow.withdrawalActive && (
-        <div className="mt-3 text-xs text-gray-400">
-          {t('Last event', 'Tukio la mwisho')}: {cow.latestHealthEvent.conditionName ?? cow.latestHealthEvent.eventType}
+        <div className="text-right flex-shrink-0">
+          <p className="text-xl font-bold text-green-700">{cow.last7DaysLitres}<span className="text-xs font-normal text-gray-500 ml-0.5">L/7d</span></p>
+          <StatusPill status={cow.status} withdrawalActive={cow.withdrawalActive} withdrawalEndsDate={cow.withdrawalEndsDate} t={t} />
+        </div>
+      </div>
+      {cow.withdrawalActive && cow.withdrawalEndsDate && (
+        <div className="border-t border-red-100 px-3 py-1.5 bg-red-50 text-xs text-red-700 rounded-b-2xl">
+          ⚠️ {t('Withdrawal until', 'Karantini hadi')} {new Date(cow.withdrawalEndsDate).toLocaleDateString(undefined, { day:'numeric', month:'short' })}
         </div>
       )}
     </div>
@@ -140,14 +128,14 @@ function SummaryTab({ year, month, t, lang }: { year: number; month: number; t: 
         <>
           <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{t('By Cow', 'Kwa Ng\'ombe')}</h3>
           {data.perCow.map(c => (
-            <div key={c.cowId} className="bg-white rounded-2xl border border-gray-200 p-4">
-              <div className="flex justify-between items-center mb-2">
+            <div key={c.cowId} className="bg-white rounded-2xl border border-gray-200 px-3 py-2.5">
+              <div className="flex justify-between items-center">
                 <p className="font-semibold text-gray-800">{c.cowName}</p>
-                <p className="text-2xl font-bold text-green-700">{c.totalLitres.toFixed(1)} L</p>
+                <p className="text-xl font-bold text-green-700">{c.totalLitres.toFixed(1)} L</p>
               </div>
-              <div className="flex gap-4 text-xs text-gray-500">
-                <span>🌅 {t('Morning', 'Asubuhi')}: {c.morningLitres.toFixed(1)} L</span>
-                <span>🌆 {t('Evening', 'Jioni')}: {c.eveningLitres.toFixed(1)} L</span>
+              <div className="flex gap-3 text-xs text-gray-500 mt-0.5">
+                <span>🌅 {c.morningLitres.toFixed(1)} L</span>
+                <span>🌆 {c.eveningLitres.toFixed(1)} L</span>
               </div>
             </div>
           ))}
@@ -159,17 +147,15 @@ function SummaryTab({ year, month, t, lang }: { year: number; month: number; t: 
         <>
           <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mt-2">{t('By Buyer', 'Kwa Mnunuzi')}</h3>
           {data.perBuyer.map(b => (
-            <div key={b.buyerId} className="bg-white rounded-2xl border border-gray-200 p-4">
-              <div className="flex justify-between items-center mb-1">
+            <div key={b.buyerId} className="bg-white rounded-2xl border border-gray-200 px-3 py-2.5">
+              <div className="flex justify-between items-center">
                 <p className="font-semibold text-gray-800">{b.buyerName}</p>
                 <p className="font-bold text-gray-800">{b.litresDelivered.toFixed(1)} L</p>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-xs mt-0.5">
                 <span className="text-gray-500">KES {b.totalValueKes.toLocaleString()}</span>
                 {b.unpaidValueKes > 0 && (
-                  <span className="text-red-600 font-medium">
-                    {t('Owed', 'Deni')}: KES {b.unpaidValueKes.toLocaleString()}
-                  </span>
+                  <span className="text-red-600 font-medium">{t('Owed', 'Deni')}: KES {b.unpaidValueKes.toLocaleString()}</span>
                 )}
               </div>
             </div>

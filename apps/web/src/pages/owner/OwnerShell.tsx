@@ -20,10 +20,10 @@ function OwnerHome() {
   const { t } = useLang()
 
   return (
-    <div className="p-4">
-      <h1 className="text-xl font-bold text-green-800 mb-1">Kathuniri Farm</h1>
-      <p className="text-sm text-gray-500 mb-6">{t('Welcome', 'Karibu')}, {user?.name}</p>
-      <div className="grid grid-cols-2 gap-3">
+    <div className="p-3">
+      <h1 className="text-xl font-bold text-green-800 mb-0.5">Kathuniri Farm</h1>
+      <p className="text-sm text-gray-500 mb-3">{t('Welcome', 'Karibu')}, {user?.name}</p>
+      <div className="grid grid-cols-2 gap-2">
         {[
           { to: 'chai',   icon: '🍃', label: t('Tea', 'Chai') },
           { to: 'maziwa', icon: '🥛', label: t('Dairy', 'Maziwa') },
@@ -40,10 +40,10 @@ function OwnerHome() {
           <NavLink
             key={item.to}
             to={item.to}
-            className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-col items-center gap-2 text-center"
+            className="bg-white rounded-2xl border border-gray-200 p-3 flex flex-col items-center gap-1.5 text-center"
           >
-            <span className="text-4xl">{item.icon}</span>
-            <span className="font-semibold text-gray-700">{item.label}</span>
+            <span className="text-3xl">{item.icon}</span>
+            <span className="font-semibold text-gray-700 text-sm">{item.label}</span>
           </NavLink>
         ))}
       </div>

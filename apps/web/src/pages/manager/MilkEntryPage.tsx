@@ -151,11 +151,11 @@ function MilkTab({ t, cows, cowsLoading }: { t: (en: string, sw: string) => stri
 
   return (
     <div className="space-y-4">
-      {/* Session selector — 2×2 grid */}
-      <div className="grid grid-cols-2 gap-2">
+      {/* Session selector — horizontal scroll row */}
+      <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-hide">
         {SESSIONS.map(s => (
           <button key={s.key} onClick={() => setSession(s.key)}
-            className={`py-3 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-1 ${
+            className={`flex-shrink-0 py-2 px-3 rounded-2xl text-sm font-bold transition-all flex items-center gap-1 ${
               session === s.key ? 'bg-green-700 text-white shadow' : 'bg-gray-100 text-gray-600'
             }`}>
             {s.icon} {t(s.en, s.sw)}
@@ -169,15 +169,15 @@ function MilkTab({ t, cows, cowsLoading }: { t: (en: string, sw: string) => stri
       ) : (
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
           {cows.map((cow, i) => (
-            <div key={cow.id} className={`flex items-center gap-3 px-4 py-3 ${i < cows.length - 1 ? 'border-b border-gray-100' : ''}`}>
-              <span className="text-base font-semibold text-gray-700 flex-1">🐄 {cow.name}</span>
+            <div key={cow.id} className={`flex items-center gap-2 px-3 py-2 ${i < cows.length - 1 ? 'border-b border-gray-100' : ''}`} style={{minHeight:'44px'}}>
+              <span className="text-sm font-semibold text-gray-700 flex-1">🐄 {cow.name}</span>
               <input
                 type="number" inputMode="decimal" placeholder="0.0"
                 value={litres[cow.id] ?? ''}
                 onChange={e => handleLitres(cow.id, e.target.value)}
-                className="w-24 text-2xl font-bold text-center border-b-2 border-green-400 focus:outline-none py-1 bg-transparent"
+                className="w-20 text-xl font-bold text-center border-b-2 border-green-400 focus:outline-none py-0.5 bg-transparent"
               />
-              <span className="text-gray-400 font-medium w-4">L</span>
+              <span className="text-gray-400 font-medium w-4 text-sm">L</span>
             </div>
           ))}
         </div>
@@ -192,7 +192,7 @@ function MilkTab({ t, cows, cowsLoading }: { t: (en: string, sw: string) => stri
       )}
 
       <button onClick={handleSave} disabled={saving || !hasAny}
-        className="w-full bg-green-700 text-white font-bold py-4 rounded-2xl text-lg disabled:opacity-40">
+        className="w-full bg-green-700 text-white font-bold py-3 rounded-2xl text-base disabled:opacity-40">
         {saving ? t('Saving…','Inahifadhi…') : `✓ ${t('Confirm','Thibitisha')}`}
       </button>
     </div>
@@ -508,9 +508,9 @@ export function MilkEntryPage() {
   ]
 
   return (
-    <div className="p-4">
+    <div className="p-3">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <div>
           <h1 className="text-xl font-bold text-green-800">{t('Dairy','Maziwa')}</h1>
           <p className="text-xs text-gray-400">
@@ -518,16 +518,16 @@ export function MilkEntryPage() {
           </p>
         </div>
         <button onClick={() => setScanMode(true)}
-          className="text-xs bg-gray-100 text-gray-600 px-3 py-2 rounded-xl font-semibold border border-gray-200">
+          className="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-xl font-semibold border border-gray-200">
           📷 {t('Receipt','Risiti')}
         </button>
       </div>
 
       {/* Tab switcher */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-3">
         {TABS.map(tb => (
           <button key={tb.key} onClick={() => setTab(tb.key)}
-            className={`flex-1 py-3 rounded-2xl text-sm font-bold transition-all ${
+            className={`flex-1 py-2 rounded-2xl text-sm font-bold transition-all ${
               tab === tb.key ? 'bg-green-700 text-white shadow' : 'bg-gray-100 text-gray-600'
             }`}>
             {tb.icon} {t(tb.en, tb.sw)}

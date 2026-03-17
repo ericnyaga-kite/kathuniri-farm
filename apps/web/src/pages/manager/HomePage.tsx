@@ -174,7 +174,7 @@ export function HomePage() {
   }
 
   return (
-    <div className="p-4 pb-8 space-y-4">
+    <div className="p-3 pb-8 space-y-3">
       {/* Header */}
       <div className="pt-1">
         <h1 className="text-xl font-bold text-green-800">{t('Daily Summary', 'Muhtasari wa Leo')}</h1>
@@ -182,7 +182,7 @@ export function HomePage() {
         {/* Date bar — tap to open calendar */}
         <button
           onClick={() => setShowCalendar(c => !c)}
-          className="mt-2 w-full flex items-center justify-between bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 active:bg-gray-100"
+          className="mt-1.5 w-full flex items-center justify-between bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2 active:bg-gray-100"
         >
           <span className="text-sm font-semibold text-gray-800">{fmtSelected()}</span>
           <div className="flex items-center gap-1 text-green-700">
@@ -213,103 +213,78 @@ export function HomePage() {
         <>
           {/* ── Withdrawal alert ──────────────────────────────────────────── */}
           {summary.healthAlerts.activeWithdrawals.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-3">
-              <p className="text-xs font-bold text-red-700 mb-1">⚠️ {t('Milk Withdrawal Active', 'Maziwa Haifai')}</p>
-              {summary.healthAlerts.activeWithdrawals.map((w, i) => (
-                <p key={i} className="text-xs text-red-600">
-                  {w.cowName} — {w.drugName} ({t('ends', 'inaisha')} {fmtDate(w.withdrawalEndsDate)}, {daysLeft(w.withdrawalEndsDate)}d)
-                </p>
-              ))}
+            <div className="bg-red-50 border border-red-200 rounded-2xl px-3 py-2">
+              <p className="text-xs font-bold text-red-700">⚠️ {t('Milk Withdrawal Active', 'Maziwa Haifai')}: {summary.healthAlerts.activeWithdrawals.map(w => `${w.cowName} ${daysLeft(w.withdrawalEndsDate)}d`).join(', ')}</p>
             </div>
           )}
 
           {/* ── Tea ─────────────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">🍃</span>
-                <span className="font-semibold text-gray-800">{t('Tea', 'Chai')}</span>
-              </div>
+          <div className="bg-white rounded-2xl border border-gray-200 px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🍃</span>
+              <span className="font-semibold text-gray-800 flex-1">{t('Tea', 'Chai')}</span>
+              {summary.tea.totalKgToday !== null
+                ? <span className="text-lg font-bold text-green-700">{summary.tea.totalKgToday} kg</span>
+                : <span className="text-xs text-gray-400">
+                    {summary.tea.lastDeliveryDate
+                      ? `${t('Last','Mwisho')}: ${fmtDate(summary.tea.lastDeliveryDate)}`
+                      : t('No SMS','Hakuna SMS')}
+                  </span>
+              }
               <button onClick={() => navigate('/manager/chai')}
-                className="text-xs bg-green-700 text-white px-3 py-1.5 rounded-xl font-semibold">
+                className="text-xs bg-green-700 text-white px-2.5 py-1 rounded-xl font-semibold ml-1">
                 + {t('Entry', 'Ingiza')}
               </button>
             </div>
-            {summary.tea.totalKgToday !== null ? (
-              <div className="text-center">
-                <p className="text-3xl font-bold text-green-700">{summary.tea.totalKgToday} kg</p>
-                <p className="text-xs text-gray-400 mt-1">{t('today', 'leo')}</p>
-              </div>
-            ) : (
-              <div className="text-center">
-                <p className="text-sm text-gray-400">{t('No SMS today', 'Hakuna SMS leo')}</p>
-                {summary.tea.lastDeliveryDate && (
-                  <p className="text-xs text-gray-300 mt-1">
-                    {t('Last', 'Mwisho')}: {fmtDate(summary.tea.lastDeliveryDate)}
-                    {summary.tea.lastDeliverySource && summary.tea.lastDeliverySource !== 'live' && (
-                      <span className="ml-1 text-amber-500">({summary.tea.lastDeliverySource})</span>
-                    )}
-                  </p>
-                )}
-              </div>
-            )}
           </div>
 
           {/* ── Milk ─────────────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">🥛</span>
-                <span className="font-semibold text-gray-800">{t('Milk Today', 'Maziwa Leo')}</span>
-              </div>
+          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-100">
+              <span className="text-xl">🥛</span>
+              <span className="font-semibold text-gray-800 flex-1">{t('Milk Today', 'Maziwa Leo')}</span>
+              <span className="text-lg font-bold text-blue-700">{summary.milk.totalLitresToday} L</span>
               <button onClick={() => navigate('/manager/maziwa')}
-                className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-xl font-semibold">
+                className="text-xs bg-blue-600 text-white px-2.5 py-1 rounded-xl font-semibold ml-1">
                 + {t('Enter', 'Ingiza')}
               </button>
             </div>
-            <div className="text-center mb-3">
-              <p className="text-3xl font-bold text-blue-700">{summary.milk.totalLitresToday} L</p>
-            </div>
-            <div className="space-y-1">
-              {summary.milk.cows.map(cow => (
-                <div key={cow.id} className="flex justify-between items-center bg-gray-50 rounded-xl px-3 py-2">
-                  <span className="text-sm font-medium text-gray-800">🐄 {cow.name}</span>
-                  <span className={`text-sm font-bold ${cow.litresToday > 0 ? 'text-blue-700' : 'text-gray-300'}`}>
-                    {cow.litresToday > 0 ? `${cow.litresToday} L` : '—'}
-                  </span>
-                </div>
-              ))}
-            </div>
+            {summary.milk.cows.map((cow, i) => (
+              <div key={cow.id} className={`flex justify-between items-center px-3 ${i < summary.milk.cows.length - 1 ? 'border-b border-gray-50' : ''}`} style={{height:'36px'}}>
+                <span className="text-sm text-gray-700">🐄 {cow.name}</span>
+                <span className={`text-sm font-semibold ${cow.litresToday > 0 ? 'text-blue-700' : 'text-gray-300'}`}>
+                  {cow.litresToday > 0 ? `${cow.litresToday} L` : '—'}
+                </span>
+              </div>
+            ))}
           </div>
 
           {/* ── Rental — compact summary only ───────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">🏠</span>
-                <span className="font-semibold text-gray-800">{t('Rent', 'Kodi')}</span>
-              </div>
+          <div className="bg-white rounded-2xl border border-gray-200 px-3 py-2.5">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xl">🏠</span>
+              <span className="font-semibold text-gray-800 flex-1">{t('Rent', 'Kodi')}</span>
               <button onClick={() => navigate('/manager/kodi')}
-                className="text-xs bg-green-700 text-white px-3 py-1.5 rounded-xl font-semibold">
+                className="text-xs bg-green-700 text-white px-2.5 py-1 rounded-xl font-semibold">
                 + {t('Collect', 'Kusanya')}
               </button>
             </div>
-            <div className="flex gap-3">
-              <div className="flex-1 text-center bg-green-50 rounded-xl py-3">
-                <p className="text-2xl font-bold text-green-700">{summary.rental.paidCount}</p>
+            <div className="flex gap-2">
+              <div className="flex-1 text-center bg-green-50 rounded-xl py-1.5">
+                <p className="text-xl font-bold text-green-700">{summary.rental.paidCount}</p>
                 <p className="text-xs text-gray-500">{t('Paid', 'Amelipa')}</p>
               </div>
-              <div className="flex-1 text-center bg-red-50 rounded-xl py-3">
-                <p className="text-2xl font-bold text-red-600">{summary.rental.unpaidCount}</p>
+              <div className="flex-1 text-center bg-red-50 rounded-xl py-1.5">
+                <p className="text-xl font-bold text-red-600">{summary.rental.unpaidCount}</p>
                 <p className="text-xs text-gray-500">{t('Unpaid', 'Hajalipa')}</p>
               </div>
-              <div className="flex-1 text-center bg-gray-50 rounded-xl py-3">
-                <p className="text-2xl font-bold text-gray-600">{summary.rental.totalOccupied}</p>
+              <div className="flex-1 text-center bg-gray-50 rounded-xl py-1.5">
+                <p className="text-xl font-bold text-gray-600">{summary.rental.totalOccupied}</p>
                 <p className="text-xs text-gray-500">{t('Total', 'Jumla')}</p>
               </div>
             </div>
             {summary.rental.needingReading.length > 0 && (
-              <p className="text-xs text-amber-600 mt-2">
+              <p className="text-xs text-amber-600 mt-1.5">
                 ⚡ {summary.rental.needingReading.map(r => `${t('Rm','Chumba')} ${r.roomNumber}`).join(', ')} — {t('no meter reading', 'hakuna usomaji wa mita')}
               </p>
             )}
@@ -317,51 +292,51 @@ export function HomePage() {
 
           {/* ── Recent health events ──────────────────────────────────────── */}
           {summary.healthAlerts.recentEvents.length > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-200 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-2xl">🐄</span>
-                <span className="font-semibold text-gray-800">{t('Animal Health (7 days)', 'Afya ya Wanyama (siku 7)')}</span>
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100">
+                <span className="text-base">🐄</span>
+                <span className="text-sm font-semibold text-gray-800">{t('Animal Health (7d)', 'Afya ya Wanyama (siku 7)')}</span>
               </div>
-              <div className="space-y-1">
-                {summary.healthAlerts.recentEvents.map(e => (
-                  <div key={e.id} className="flex justify-between items-center bg-orange-50 rounded-xl px-3 py-2">
-                    <div>
-                      <p className="text-xs font-medium text-gray-800">{e.cowName}</p>
-                      <p className="text-xs text-gray-500">{e.conditionName ?? e.eventType}</p>
-                    </div>
-                    <p className="text-xs text-gray-400">{fmtDate(e.eventDate)}</p>
+              {summary.healthAlerts.recentEvents.map((e, i) => (
+                <div key={e.id} className={`flex justify-between items-center px-3 ${i < summary.healthAlerts.recentEvents.length - 1 ? 'border-b border-gray-50' : ''}`} style={{height:'36px'}}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-gray-800">{e.cowName}</span>
+                    <span className="text-xs text-gray-400">{e.conditionName ?? e.eventType}</span>
                   </div>
-                ))}
-              </div>
+                  <span className="text-xs text-gray-400">{fmtDate(e.eventDate)}</span>
+                </div>
+              ))}
             </div>
           )}
 
           {/* ── Today's log ───────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">📝</span>
-                <span className="font-semibold text-gray-800">{t("Today's Log", 'Kumbukumbu ya Leo')}</span>
-              </div>
+          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-100">
+              <span className="text-xl">📝</span>
+              <span className="font-semibold text-gray-800 flex-1">{t("Today's Log", 'Kumbukumbu ya Leo')}</span>
+              {summary.logs.length > 0 && (
+                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">{summary.logs.length}</span>
+              )}
               <button onClick={() => navigate('/manager/log')}
-                className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-xl font-semibold">
+                className="text-xs bg-purple-600 text-white px-2.5 py-1 rounded-xl font-semibold ml-1">
                 + {t('Add', 'Ongeza')}
               </button>
             </div>
             {summary.logs.length === 0 ? (
-              <p className="text-xs text-gray-400">{t('Nothing recorded yet today.', 'Hakuna kumbukumbu leo.')}</p>
+              <p className="text-xs text-gray-400 px-3 py-2">{t('Nothing recorded yet today.', 'Hakuna kumbukumbu leo.')}</p>
             ) : (
-              <div className="space-y-2">
-                {summary.logs.map(l => (
-                  <div key={l.id} className="bg-gray-50 rounded-xl px-3 py-2">
-                    <div className="flex items-center gap-1 mb-1">
-                      <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium capitalize">{l.category}</span>
-                      {l.title && <span className="text-xs font-semibold text-gray-700">{l.title}</span>}
-                    </div>
-                    <p className="text-xs text-gray-600">{l.body}</p>
+              <>
+                {summary.logs.slice(0, 2).map((l, i) => (
+                  <div key={l.id} className={`flex items-center gap-2 px-3 ${i < Math.min(summary.logs.length, 2) - 1 ? 'border-b border-gray-50' : ''}`} style={{minHeight:'36px',paddingTop:'6px',paddingBottom:'6px'}}>
+                    <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-medium capitalize flex-shrink-0">{l.category}</span>
+                    {l.title && <span className="text-xs font-semibold text-gray-700 flex-shrink-0">{l.title}</span>}
+                    <span className="text-xs text-gray-500 truncate">{l.body}</span>
                   </div>
                 ))}
-              </div>
+                {summary.logs.length > 2 && (
+                  <p className="text-xs text-gray-400 px-3 py-1.5 border-t border-gray-50">+{summary.logs.length - 2} {t('more', 'zaidi')}</p>
+                )}
+              </>
             )}
           </div>
         </>

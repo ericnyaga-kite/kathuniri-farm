@@ -294,99 +294,99 @@ export function PickingEntryPage() {
   )
 
   return (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-4">
+    <div className="p-3">
+      <div className="flex items-center justify-between mb-3">
         <div>
           <h1 className="text-xl font-bold text-green-800">{t('Tea — Picking', 'Chai — Kuokota')}</h1>
           {scanned && <p className="text-xs text-green-600 font-medium">✓ {t('Scanned from photo','Imesomwa kutoka picha')}</p>}
         </div>
         <div className="flex gap-2">
           <button onClick={() => setScanMode(true)}
-            className="text-xs bg-gray-100 text-gray-600 px-3 py-2 rounded-xl font-semibold border border-gray-200">
+            className="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-xl font-semibold border border-gray-200">
             📷 {t('Scan', 'Scan')}
           </button>
           <button onClick={() => setTab('history')}
-            className="text-xs bg-gray-100 text-gray-600 px-3 py-2 rounded-xl font-semibold border border-gray-200">
+            className="text-xs bg-gray-100 text-gray-600 px-3 py-1.5 rounded-xl font-semibold border border-gray-200">
             📖 {t('History', 'Historia')}
           </button>
         </div>
       </div>
 
-      {/* Date */}
-      <div className="mb-4">
-        <label className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-1 block">{t('Date', 'Tarehe')}</label>
-        <input type="date" value={date} max={today} onChange={e => setDate(e.target.value)}
-          className="w-full border border-gray-300 rounded-xl px-4 py-3 text-base" />
-      </div>
-
-      {/* Sector */}
-      <div className="mb-5">
-        <label className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-1 block">{t('Sector', 'Sekta')}</label>
-        <select value={sector} onChange={e => setSector(e.target.value)}
-          className="w-full border border-gray-300 rounded-xl px-4 py-3 text-base bg-white">
-          <option value="">{t('— Select sector —', '— Chagua sekta —')}</option>
-          {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+      {/* Date + Sector — compact 2-col */}
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div>
+          <label className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-1 block">{t('Date', 'Tarehe')}</label>
+          <input type="date" value={date} max={today} onChange={e => setDate(e.target.value)}
+            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-1 block">{t('Sector', 'Sekta')}</label>
+          <select value={sector} onChange={e => setSector(e.target.value)}
+            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm bg-white">
+            <option value="">{t('— Select —', '— Chagua —')}</option>
+            {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
       </div>
 
       {/* Pickers */}
       <div className="mb-2">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-2">
           <label className="text-xs text-gray-500 uppercase tracking-wide font-semibold">{t('Pickers', 'Wavunaji')}</label>
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            <span className="w-3 h-3 rounded-full bg-orange-300 inline-block" /> {t('Staff (no casual pay)', 'Mfanyakazi (mshahara)')}
+          <div className="flex items-center gap-1 text-xs text-gray-400">
+            <span className="w-2.5 h-2.5 rounded-full bg-orange-300 inline-block" /> {t('Staff', 'Mfanyakazi')}
           </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {pickers.map((row, i) => (
-            <div key={i} className={`flex items-center gap-2 rounded-xl border px-2 py-2 ${row.isStaff ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200'}`}>
+            <div key={i} className={`flex items-center gap-1.5 rounded-xl border px-2 ${row.isStaff ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200'}`} style={{height:'40px'}}>
               <button onClick={() => updateRow(i, 'isStaff', !row.isStaff)}
                 title={t('Toggle staff/casual', 'Badilisha aina')}
-                className={`w-6 h-6 rounded-full border-2 flex-shrink-0 ${row.isStaff ? 'bg-orange-300 border-orange-400' : 'border-gray-300'}`} />
+                className={`w-5 h-5 rounded-full border-2 flex-shrink-0 ${row.isStaff ? 'bg-orange-300 border-orange-400' : 'border-gray-300'}`} />
               <input type="text" placeholder={t('Name', 'Jina')} value={row.name}
                 onChange={e => updateRow(i, 'name', e.target.value)}
-                className="flex-1 text-base focus:outline-none bg-transparent min-w-0" />
+                className="flex-1 text-sm focus:outline-none bg-transparent min-w-0" />
               <input type="number" inputMode="decimal" placeholder="kg" value={row.kg}
                 onChange={e => updateRow(i, 'kg', e.target.value)}
-                className="w-16 text-base text-right focus:outline-none bg-transparent" />
-              <span className="text-gray-400 text-sm w-5">kg</span>
+                className="w-14 text-sm text-right focus:outline-none bg-transparent" />
+              <span className="text-gray-400 text-xs w-4">kg</span>
               {!row.isStaff && row.kg && parseFloat(row.kg) > 0 && (
-                <span className="text-xs text-green-700 font-semibold w-14 text-right flex-shrink-0">
+                <span className="text-xs text-green-700 font-semibold w-12 text-right flex-shrink-0">
                   {(parseFloat(row.kg) * CASUAL_RATE).toLocaleString()}
                 </span>
               )}
               {row.isStaff && (
-                <span className="text-xs text-orange-400 w-14 text-right flex-shrink-0">{t('salary', 'mshahara')}</span>
+                <span className="text-xs text-orange-400 w-12 text-right flex-shrink-0">{t('salary', 'mshahara')}</span>
               )}
               {pickers.length > 1 && (
-                <button onClick={() => removeRow(i)} className="text-red-400 text-xl w-7 flex-shrink-0">×</button>
+                <button onClick={() => removeRow(i)} className="text-red-400 text-lg w-6 flex-shrink-0 leading-none">×</button>
               )}
             </div>
           ))}
         </div>
 
         <button onClick={addRow}
-          className="mt-3 w-full py-3 border-2 border-dashed border-green-400 rounded-xl text-green-700 font-semibold text-base">
+          className="mt-2 w-full py-2 border-2 border-dashed border-green-400 rounded-xl text-green-700 font-semibold text-sm">
           + {t('Add Picker', 'Ongeza Mvunaji')}
         </button>
       </div>
 
       {/* Totals */}
       {totalKg > 0 && (
-        <div className="my-4 bg-green-50 rounded-2xl p-4 space-y-2">
+        <div className="my-2 bg-green-50 rounded-2xl px-3 py-2 space-y-1">
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-600">{t('Total kg', 'Jumla kg')}</span>
-            <span className="text-2xl font-bold text-green-800">{totalKg.toFixed(1)} kg</span>
+            <span className="text-xl font-bold text-green-800">{totalKg.toFixed(1)} kg</span>
           </div>
           {casualRows.length > 0 && (
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">{casualRows.length} {t('casual pickers','vibarua')} × KES {CASUAL_RATE}/kg</span>
-              <span className="text-xl font-bold text-green-700">KES {casualPay.toLocaleString()}</span>
+              <span className="text-xs text-gray-600">{casualRows.length} {t('casual','vibarua')} × KES {CASUAL_RATE}/kg</span>
+              <span className="text-base font-bold text-green-700">KES {casualPay.toLocaleString()}</span>
             </div>
           )}
           {staffRows.length > 0 && (
-            <div className="flex justify-between items-center text-gray-400 text-sm">
+            <div className="flex justify-between items-center text-gray-400 text-xs">
               <span>{staffRows.length} {t('staff (salary only)', 'wafanyakazi (mshahara tu)')}</span>
               <span>{staffRows.reduce((s,r) => s + parseFloat(r.kg), 0).toFixed(1)} kg</span>
             </div>

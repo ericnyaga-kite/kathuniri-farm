@@ -144,17 +144,17 @@ function KaziTab({ t }: { t: (en: string, sw: string) => string }) {
   )
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       {/* Date */}
       <div>
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{t('Date', 'Tarehe')}</p>
         <input type="date" value={date} onChange={e => setDate(e.target.value)}
-          className="w-full border border-gray-300 rounded-2xl px-4 py-3 text-sm" />
+          className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" />
       </div>
 
       {/* Permanent/Contract staff */}
       <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
           {t('Staff Attendance', 'Mahudhurio ya Wafanyakazi')}
         </p>
         {loadingStaff ? (
@@ -164,11 +164,11 @@ function KaziTab({ t }: { t: (en: string, sw: string) => string }) {
         ) : (
           <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
             {staff.map((s, i) => (
-              <div key={s.id} className={`flex items-center gap-3 px-4 py-4 ${i < staff.length - 1 ? 'border-b border-gray-100' : ''}`}>
-                <span className="flex-1 font-semibold text-gray-700">👷 {s.fullName}</span>
+              <div key={s.id} className={`flex items-center gap-3 px-3 ${i < staff.length - 1 ? 'border-b border-gray-100' : ''}`} style={{height:'44px'}}>
+                <span className="flex-1 text-sm font-semibold text-gray-700">👷 {s.fullName}</span>
                 <button
                   onClick={() => toggleAttendance(s.id)}
-                  className={`px-5 py-3 rounded-2xl font-bold text-base transition-all min-w-[90px] ${
+                  className={`px-3 py-1.5 rounded-xl font-bold text-sm transition-all min-w-[80px] ${
                     attendance[s.id] !== false
                       ? 'bg-green-100 text-green-700 border-2 border-green-400'
                       : 'bg-red-100 text-red-700 border-2 border-red-400'
@@ -183,35 +183,31 @@ function KaziTab({ t }: { t: (en: string, sw: string) => string }) {
 
       {/* Casuals */}
       <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
           {t('Casual Workers', 'Vibarua')}
         </p>
-        <div className="space-y-3">
+        <div className="space-y-1.5">
           {casuals.map(c => (
-            <div key={c.id} className="bg-gray-50 rounded-2xl p-3 space-y-2 border border-gray-200">
-              <div className="flex items-center gap-2">
-                <input type="text" placeholder={t('Name', 'Jina')} value={c.name}
-                  onChange={e => updateCasual(c.id, 'name', e.target.value)}
-                  className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm bg-white" />
-                <button onClick={() => removeCasual(c.id)}
-                  className="w-9 h-9 flex items-center justify-center text-red-500 bg-red-50 rounded-xl font-bold text-lg">
-                  ✕
-                </button>
-              </div>
+            <div key={c.id} className="flex items-center gap-1.5 bg-gray-50 rounded-xl border border-gray-200 px-2" style={{height:'40px'}}>
+              <input type="text" placeholder={t('Name', 'Jina')} value={c.name}
+                onChange={e => updateCasual(c.id, 'name', e.target.value)}
+                className="w-24 border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-0" />
               <input type="text" placeholder={t('Task', 'Kazi')} value={c.task}
                 onChange={e => updateCasual(c.id, 'task', e.target.value)}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm bg-white" />
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 font-medium">KES</span>
-                <input type="number" inputMode="numeric" placeholder="0" value={c.amount}
-                  onChange={e => updateCasual(c.id, 'amount', e.target.value)}
-                  className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm bg-white" />
-              </div>
+                className="flex-1 border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white min-w-0" />
+              <span className="text-xs text-gray-500 font-medium flex-shrink-0">KES</span>
+              <input type="number" inputMode="numeric" placeholder="0" value={c.amount}
+                onChange={e => updateCasual(c.id, 'amount', e.target.value)}
+                className="w-16 border border-gray-300 rounded-lg px-2 py-1 text-xs bg-white" />
+              <button onClick={() => removeCasual(c.id)}
+                className="w-6 h-6 flex items-center justify-center text-red-500 flex-shrink-0 text-base leading-none">
+                ✕
+              </button>
             </div>
           ))}
         </div>
         <button onClick={addCasual}
-          className="mt-3 w-full py-3 rounded-2xl border-2 border-dashed border-gray-300 text-gray-500 font-semibold text-sm">
+          className="mt-2 w-full py-2 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 font-semibold text-sm">
           + {t('Add Casual Worker', 'Ongeza Kibarua')}
         </button>
       </div>
@@ -219,7 +215,7 @@ function KaziTab({ t }: { t: (en: string, sw: string) => string }) {
       {error && <p className="text-red-600 text-sm text-center">{error}</p>}
 
       <button onClick={handleSave} disabled={saving}
-        className="w-full bg-green-700 text-white font-bold py-5 rounded-2xl text-lg disabled:opacity-40">
+        className="w-full bg-green-700 text-white font-bold py-3 rounded-2xl text-base disabled:opacity-40">
         {saving ? t('Saving…', 'Inahifadhi…') : `✓ ${t('Save Attendance', 'Hifadhi Mahudhurio')}`}
       </button>
     </div>
@@ -277,19 +273,19 @@ function MatumiziTab({ t }: { t: (en: string, sw: string) => string }) {
   )
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       {/* Enterprise */}
       <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
           {t('Enterprise', 'Biashara')}
         </p>
         <div className="grid grid-cols-3 gap-2">
           {ENTERPRISES.map(e => (
             <button key={e.key} onClick={() => setEnterprise(e.key)}
-              className={`flex flex-col items-center gap-1 py-3 rounded-2xl border-2 font-bold text-xs transition-all ${
+              className={`flex flex-col items-center gap-0.5 py-2 rounded-2xl border-2 font-bold text-xs transition-all ${
                 enterprise === e.key ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 text-gray-600 border-gray-200'
               }`}>
-              <span className="text-2xl">{e.icon}</span>
+              <span className="text-xl">{e.icon}</span>
               {t(e.en, e.sw)}
             </button>
           ))}
@@ -324,15 +320,15 @@ function MatumiziTab({ t }: { t: (en: string, sw: string) => string }) {
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
           {t('Payment Method', 'Njia ya Malipo')}
         </p>
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <button onClick={() => setPayMethod('cash')}
-            className={`flex-1 py-4 rounded-2xl font-bold text-base border-2 transition-all ${
+            className={`flex-1 py-2.5 rounded-2xl font-bold text-sm border-2 transition-all ${
               payMethod === 'cash' ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-600 border-gray-200'
             }`}>
-            💵 {t('Cash', 'Pesa Taslimu')}
+            💵 {t('Cash', 'Taslimu')}
           </button>
           <button onClick={() => setPayMethod('mpesa')}
-            className={`flex-1 py-4 rounded-2xl font-bold text-base border-2 transition-all ${
+            className={`flex-1 py-2.5 rounded-2xl font-bold text-sm border-2 transition-all ${
               payMethod === 'mpesa' ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-600 border-gray-200'
             }`}>
             📱 M-Pesa
@@ -350,7 +346,7 @@ function MatumiziTab({ t }: { t: (en: string, sw: string) => string }) {
       {error && <p className="text-red-600 text-sm text-center">{error}</p>}
 
       <button onClick={handleSave} disabled={saving || !enterprise || !account.trim() || !amount}
-        className="w-full bg-blue-600 text-white font-bold py-5 rounded-2xl text-lg disabled:opacity-40">
+        className="w-full bg-blue-600 text-white font-bold py-3 rounded-2xl text-base disabled:opacity-40">
         {saving ? t('Saving…', 'Inahifadhi…') : `✓ ${t('Save Expense', 'Hifadhi Gharama')}`}
       </button>
     </div>
@@ -434,8 +430,8 @@ export function LabourPage() {
   ]
 
   return (
-    <div className="p-4 max-w-md mx-auto">
-      <div className="mb-4">
+    <div className="p-3 max-w-md mx-auto">
+      <div className="mb-3">
         <h1 className="text-xl font-bold text-green-800">{t('Work & Expenses', 'Kazi na Matumizi')}</h1>
         <p className="text-xs text-gray-400">
           {new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
@@ -443,10 +439,10 @@ export function LabourPage() {
       </div>
 
       {/* Tab switcher */}
-      <div className="flex gap-2 mb-5">
+      <div className="flex gap-2 mb-3">
         {TABS.map(tb => (
           <button key={tb.key} onClick={() => setTab(tb.key)}
-            className={`flex-1 py-3 rounded-2xl text-xs font-bold transition-all ${
+            className={`flex-1 py-2 rounded-2xl text-xs font-bold transition-all ${
               tab === tb.key ? 'bg-green-700 text-white shadow' : 'bg-gray-100 text-gray-600'
             }`}>
             {tb.icon} {t(tb.en, tb.sw)}

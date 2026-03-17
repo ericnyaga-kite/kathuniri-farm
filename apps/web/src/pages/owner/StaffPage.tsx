@@ -118,7 +118,7 @@ function StaffCard({ member, onEdit, onRefresh, t }: {
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-      <div className="p-4">
+      <div className="p-3">
         <div className="flex justify-between items-start">
           <div>
             <p className="font-bold text-gray-800">{member.fullName}</p>
@@ -319,7 +319,7 @@ export function StaffPage() {
   const others = staff.filter(s => s.employmentType !== 'permanent')
 
   return (
-    <div className="p-4 max-w-2xl mx-auto">
+    <div className="p-3 max-w-2xl mx-auto">
       <div className="flex justify-between items-center mb-1">
         <h1 className="text-xl font-bold text-green-800">{t('Staff', 'Wafanyakazi')}</h1>
         <button onClick={() => { setShowAddForm(s => !s); setEditing(null) }}
