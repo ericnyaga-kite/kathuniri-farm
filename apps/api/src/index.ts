@@ -15,6 +15,8 @@ import { logsRouter } from './routes/logs'
 import { machineryRouter } from './routes/machinery'
 import { plotsRouter } from './routes/plots'
 import { reportsRouter } from './routes/reports'
+import { payrollRouter } from './routes/payroll'
+import { expensesRouter } from './routes/expenses'
 import { errorHandler } from './middleware/errorHandler'
 import { startInsightsJob } from './jobs/insightsJob'
 
@@ -25,6 +27,7 @@ app.use(helmet())
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
     ? [
+        'https://farm.kiteholdings.biz',
         'https://kathuniri-farm.pages.dev',
         /^https:\/\/[a-z0-9]+\.kathuniri-farm\.pages\.dev$/,  // preview deployments
       ]
@@ -47,6 +50,8 @@ app.use('/api/logs', logsRouter)
 app.use('/api/machinery', machineryRouter)
 app.use('/api/plots', plotsRouter)
 app.use('/api/reports', reportsRouter)
+app.use('/api/payroll', payrollRouter)
+app.use('/api/expenses', expensesRouter)
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })

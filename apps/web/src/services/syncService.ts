@@ -1,6 +1,7 @@
 import { db } from '../db/localDb'
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
+function token() { return localStorage.getItem('kf_token') ?? '' }
 let syncing = false
 
 export async function flushSyncQueue(): Promise<{ synced: number; pending: number }> {
@@ -14,7 +15,7 @@ export async function flushSyncQueue(): Promise<{ synced: number; pending: numbe
 
     const res = await fetch(`${API}/api/sync/upload`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
       body: JSON.stringify({ entries: pending }),
     })
 

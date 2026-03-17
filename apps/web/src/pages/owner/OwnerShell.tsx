@@ -11,6 +11,9 @@ import { SettingsPage } from './SettingsPage'
 import { OwnerFarmPage, OwnerPlotDetailPage } from './FarmPage'
 import { DailyReportPage } from './DailyReportPage'
 import { SmallStockPage } from './SmallStockPage'
+import { AiAssistantPage } from './AiAssistantPage'
+import { PayrollPage } from './PayrollPage'
+import { ExpensePage } from './ExpensePage'
 
 function OwnerHome() {
   const { user } = useAuthStore()
@@ -29,7 +32,10 @@ function OwnerHome() {
           { to: 'shamba',   icon: '🌾', label: t('Farm Map', 'Ramani') },
           { to: 'mifugo',   icon: '🐑', label: t('Small Stock', 'Mifugo') },
           { to: 'ripoti',   icon: '📋', label: t('Daily Report', 'Ripoti') },
-          { to: 'settings', icon: '⚙️', label: t('Settings', 'Mipangilio') },
+          { to: 'settings',   icon: '⚙️', label: t('Settings', 'Mipangilio') },
+          { to: 'msaidizi',  icon: '🤖', label: t('AI Assistant', 'Msaidizi') },
+          { to: 'payroll',   icon: '💰', label: t('Payroll', 'Mishahara') },
+          { to: 'matumizi',  icon: '📊', label: t('Expenses', 'Matumizi') },
         ].map(item => (
           <NavLink
             key={item.to}
@@ -87,6 +93,9 @@ export function OwnerShell() {
           <Route path="mifugo"          element={<SmallStockPage />} />
           <Route path="ripoti"          element={<DailyReportPage />} />
           <Route path="settings"        element={<SettingsPage />} />
+          <Route path="msaidizi"        element={<AiAssistantPage />} />
+          <Route path="payroll"         element={<PayrollPage />} />
+          <Route path="matumizi"        element={<ExpensePage />} />
         </Routes>
       </main>
     </div>
