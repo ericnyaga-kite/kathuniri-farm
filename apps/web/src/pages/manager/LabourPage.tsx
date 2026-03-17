@@ -243,33 +243,50 @@ async function compressImage(file: File, maxWidth = 800, quality = 0.7): Promise
 
 // ─── Matumizi Tab ─────────────────────────────────────────────────────────────
 
+interface ScannedItem {
+  id: string
+  name: string
+  qty: number
+  unitPrice: number
+  total: number
+}
+
 function MatumiziTab({ t }: { t: (en: string, sw: string) => string }) {
   const today = new Date().toISOString().split('T')[0]
-  const [enterprise,    setEnterprise]    = useState('')
-  const [account,       setAccount]       = useState('')
-  const [amount,        setAmount]        = useState('')
-  const [vendor,        setVendor]        = useState('')
-  const [mpesaRef,      setMpesaRef]      = useState('')
-  const [payMethod,     setPayMethod]     = useState<'cash' | 'mpesa'>('cash')
-  const [date,          setDate]          = useState(today)
-  const [saving,        setSaving]        = useState(false)
-  const [saved,         setSaved]         = useState(false)
-  const [error,         setError]         = useState('')
-  const [scanning,      setScanning]      = useState(false)
-  const [scanError,     setScanError]     = useState('')
+
+  // Shared fields
+  const [enterprise,  setEnterprise]  = useState('')
+  const [vendor,      setVendor]      = useState('')
+  const [mpesaRef,    setMpesaRef]    = useState('')
+  const [payMethod,   setPayMethod]   = useState<'cash' | 'mpesa'>('cash')
+  const [date,        setDate]        = useState(today)
+  const [saving,      setSaving]      = useState(false)
+  const [saved,       setSaved]       = useState(false)
+  const [saveCount,   setSaveCount]   = useState(0)
+  const [error,       setError]       = useState('')
+
+  // Scan state
+  const [scanning,       setScanning]       = useState(false)
+  const [scanError,      setScanError]      = useState('')
   const [receiptDataUrl, setReceiptDataUrl] = useState<string | null>(null)
-  const [receiptUploadId, setReceiptUploadId] = useState<string | null>(null)
+  const [scannedItems,   setScannedItems]   = useState<ScannedItem[] | null>(null)
+
+  // Manual entry (used when no scan)
+  const [manualAccount, setManualAccount] = useState('')
+  const [manualAmount,  setManualAmount]  = useState('')
+
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const isScanned = scannedItems !== null
 
   async function handleReceiptPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    setScanError(''); setScanning(true)
+    setScanError(''); setScanning(true); setScannedItems(null)
     try {
       const compressed = await compressImage(file)
       setReceiptDataUrl(compressed)
 
-      // Call scan endpoint — do NOT save yet
       const r = await fetch(`${API}/api/expenses/scan`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
@@ -279,73 +296,110 @@ function MatumiziTab({ t }: { t: (en: string, sw: string) => string }) {
       const data = await r.json() as {
         vendor?: string
         date?: string
-        totalAmount?: number
         paymentMethod?: string
         mpesaRef?: string
         suggestedEnterprise?: string
         items?: Array<{ name: string; qty: number; unitPrice: number; total: number }>
+        totalAmount?: number
       }
 
-      // Pre-fill form fields — manager can edit before saving
       if (data.vendor)              setVendor(data.vendor)
-      if (data.totalAmount)         setAmount(String(data.totalAmount))
       if (data.date)                setDate(data.date)
       if (data.paymentMethod === 'mpesa' || data.paymentMethod === 'cash')
         setPayMethod(data.paymentMethod)
       if (data.mpesaRef)            setMpesaRef(data.mpesaRef)
       if (data.suggestedEnterprise) setEnterprise(data.suggestedEnterprise)
+
+      // Build item list — fall back to single item if no line items
       if (data.items?.length) {
-        const summary = data.items.map(i => `${i.name} x${i.qty}`).join(', ')
-        setAccount(summary)
+        setScannedItems(data.items.map((item, i) => ({ ...item, id: String(i) })))
+      } else if (data.totalAmount) {
+        setScannedItems([{ id: '0', name: t('Purchase', 'Ununuzi'), qty: 1, unitPrice: data.totalAmount, total: data.totalAmount }])
       }
     } catch (err) {
       setScanError(err instanceof Error ? err.message : t('Scan failed', 'Kusoma risiti kumeshindwa'))
+      setReceiptDataUrl(null)
     } finally {
       setScanning(false)
-      // Reset input so the same file can be re-selected
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
+  function removeItem(id: string) {
+    setScannedItems(prev => prev?.filter(i => i.id !== id) ?? null)
+  }
+
+  function updateItemName(id: string, name: string) {
+    setScannedItems(prev => prev?.map(i => i.id === id ? { ...i, name } : i) ?? null)
+  }
+
+  function updateItemTotal(id: string, total: string) {
+    const n = parseFloat(total) || 0
+    setScannedItems(prev => prev?.map(i => i.id === id ? { ...i, total: n } : i) ?? null)
+  }
+
   async function handleSave() {
     if (!enterprise) { setError(t('Select enterprise', 'Chagua biashara')); return }
-    if (!account.trim()) { setError(t('Enter item/account', 'Weka kitu kilichonunuliwa')); return }
-    if (!amount)     { setError(t('Enter amount', 'Weka kiasi')); return }
     setSaving(true); setError('')
     try {
-      // Upload receipt image if we have one and haven't uploaded it yet
-      let uploadId = receiptUploadId
-      if (receiptDataUrl && !uploadId) {
+      // Upload receipt image once
+      let receiptImageId: string | undefined
+      if (receiptDataUrl) {
         const upR = await fetch(`${API}/api/uploads`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
           body:    JSON.stringify({ dataUrl: receiptDataUrl, mimeType: 'image/jpeg', linkedEntityType: 'ExpenseRecord' }),
         })
         if (upR.ok) {
-          const upData = await upR.json() as { id: string; url: string }
-          uploadId = upData.id
-          setReceiptUploadId(uploadId)
+          const upData = await upR.json() as { id: string }
+          receiptImageId = upData.id
         }
       }
 
-      const r = await fetch(`${API}/api/expenses`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
-        body:    JSON.stringify({
-          expenseDate:    date,
-          enterprise,
-          account:        account.trim(),
-          amountKes:      Number(amount),
-          paymentMethod:  payMethod,
-          vendor:         vendor.trim() || undefined,
-          mpesaRef:       mpesaRef.trim() || undefined,
-          receiptImageId: uploadId ?? undefined,
-        }),
-      })
-      if (!r.ok) throw new Error()
+      if (isScanned && scannedItems!.length > 0) {
+        // Save one expense record per line item
+        for (const item of scannedItems!) {
+          if (!item.name.trim() || item.total <= 0) continue
+          await fetch(`${API}/api/expenses`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+            body:    JSON.stringify({
+              expenseDate:    date,
+              enterprise,
+              account:        item.qty > 1 ? `${item.qty}× ${item.name.trim()}` : item.name.trim(),
+              amountKes:      item.total,
+              paymentMethod:  payMethod,
+              vendor:         vendor.trim() || undefined,
+              mpesaRef:       mpesaRef.trim() || undefined,
+              receiptImageId,
+            }),
+          })
+        }
+        setSaveCount(scannedItems!.filter(i => i.name.trim() && i.total > 0).length)
+      } else {
+        // Manual single entry
+        if (!manualAccount.trim()) { setError(t('Enter item', 'Weka kitu')); setSaving(false); return }
+        if (!manualAmount)         { setError(t('Enter amount', 'Weka kiasi')); setSaving(false); return }
+        await fetch(`${API}/api/expenses`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+          body:    JSON.stringify({
+            expenseDate:    date,
+            enterprise,
+            account:        manualAccount.trim(),
+            amountKes:      Number(manualAmount),
+            paymentMethod:  payMethod,
+            vendor:         vendor.trim() || undefined,
+            mpesaRef:       mpesaRef.trim() || undefined,
+            receiptImageId,
+          }),
+        })
+        setSaveCount(1)
+      }
+
       setSaved(true)
-      setAccount(''); setAmount(''); setVendor(''); setMpesaRef('')
-      setReceiptDataUrl(null); setReceiptUploadId(null)
+      setManualAccount(''); setManualAmount(''); setVendor(''); setMpesaRef('')
+      setReceiptDataUrl(null); setScannedItems(null)
     } catch {
       setError(t('Failed. Try again.', 'Imeshindwa. Jaribu tena.'))
     } finally {
@@ -354,51 +408,108 @@ function MatumiziTab({ t }: { t: (en: string, sw: string) => string }) {
   }
 
   if (saved) return (
-    <div className="flex flex-col items-center justify-center py-12 space-y-4">
+    <div className="flex flex-col items-center justify-center py-10 space-y-3">
       <p className="text-5xl">✅</p>
-      <p className="text-xl font-bold text-green-700">{t('Expense saved!', 'Gharama imehifadhiwa!')}</p>
-      <button className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl" onClick={() => setSaved(false)}>
+      <p className="text-lg font-bold text-green-700">
+        {saveCount > 1
+          ? t(`${saveCount} items saved!`, `Vitu ${saveCount} vimehifadhiwa!`)
+          : t('Expense saved!', 'Gharama imehifadhiwa!')}
+      </p>
+      <button className="w-full bg-blue-600 text-white font-bold py-3 rounded-2xl"
+        onClick={() => { setSaved(false); setSaveCount(0) }}>
         {t('Record Another', 'Ingiza Nyingine')}
       </button>
     </div>
   )
 
+  const scannedTotal = scannedItems?.reduce((s, i) => s + i.total, 0) ?? 0
+
   return (
     <div className="space-y-3">
-      {/* Receipt scan button */}
-      <div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={handleReceiptPhoto}
-        />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={scanning}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-blue-400 bg-blue-50 text-blue-700 font-bold text-sm disabled:opacity-50">
-          {scanning ? (
-            <>
-              <span className="animate-spin text-lg">⏳</span>
-              {t('Reading receipt…', 'Inasoma risiti…')}
-            </>
-          ) : (
-            <>
-              <span className="text-xl">📷</span>
-              {t('Scan Receipt', 'Soma Risiti')}
-            </>
-          )}
-        </button>
-        {scanError && <p className="text-red-600 text-xs text-center mt-1">{scanError}</p>}
-        {receiptDataUrl && !scanning && (
-          <div className="mt-2 flex items-center gap-2">
-            <img src={receiptDataUrl} alt="receipt" className="w-16 h-16 object-cover rounded-xl border border-gray-200" />
-            <p className="text-xs text-green-700 font-semibold">{t('Receipt scanned — review fields below', 'Risiti imesomwa — angalia maelezo chini')}</p>
+
+      {/* Scan button */}
+      <input ref={fileInputRef} type="file" accept="image/*" capture="environment"
+        className="hidden" onChange={handleReceiptPhoto} />
+      <button onClick={() => fileInputRef.current?.click()} disabled={scanning}
+        className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-blue-400 bg-blue-50 text-blue-700 font-bold text-sm disabled:opacity-50">
+        {scanning
+          ? <><span className="animate-spin">⏳</span> {t('Reading receipt…', 'Inasoma risiti…')}</>
+          : <><span className="text-xl">📷</span> {t('Scan Receipt', 'Soma Risiti')}</>}
+      </button>
+      {scanError && <p className="text-red-600 text-xs text-center">{scanError}</p>}
+
+      {/* Scanned item list — review before saving */}
+      {isScanned && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-blue-200">
+            <div className="flex items-center gap-2">
+              {receiptDataUrl && (
+                <img src={receiptDataUrl} alt="receipt"
+                  className="w-8 h-8 object-cover rounded-lg border border-blue-300" />
+              )}
+              <div>
+                <p className="text-xs font-bold text-blue-800">{vendor || t('Receipt scanned', 'Risiti imesomwa')}</p>
+                <p className="text-xs text-blue-600">{scannedItems!.length} {t('items', 'vitu')} · KES {scannedTotal.toLocaleString()}</p>
+              </div>
+            </div>
+            <button onClick={() => { setScannedItems(null); setReceiptDataUrl(null) }}
+              className="text-blue-400 text-lg px-1">✕</button>
           </div>
-        )}
-      </div>
+          <div className="divide-y divide-blue-100">
+            {scannedItems!.map(item => (
+              <div key={item.id} className="flex items-center gap-2 px-3 py-2">
+                <div className="flex-1 min-w-0">
+                  <input
+                    value={item.name}
+                    onChange={e => updateItemName(item.id, e.target.value)}
+                    className="w-full text-sm font-medium bg-transparent border-b border-blue-200 focus:border-blue-500 focus:outline-none"
+                  />
+                  {item.qty > 1 && (
+                    <p className="text-xs text-blue-500 mt-0.5">{item.qty} × KES {item.unitPrice.toLocaleString()}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="text-xs text-blue-600">KES</span>
+                  <input
+                    type="number"
+                    value={item.total}
+                    onChange={e => updateItemTotal(item.id, e.target.value)}
+                    className="w-20 text-sm font-bold text-right bg-transparent border-b border-blue-200 focus:border-blue-500 focus:outline-none"
+                  />
+                  <button onClick={() => removeItem(item.id)}
+                    className="text-red-400 text-base px-1">✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-blue-600 text-center py-2">
+            {t('Edit names or amounts, then confirm below', 'Hariri majina au kiasi, kisha thibitisha chini')}
+          </p>
+        </div>
+      )}
+
+      {/* Manual entry — only shown when not in scan mode */}
+      {!isScanned && (
+        <>
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              {t('Item / Account', 'Kitu / Akaunti')}
+            </p>
+            <input type="text" value={manualAccount} onChange={e => setManualAccount(e.target.value)}
+              placeholder={t('What was bought?', 'Kitu gani kilinunuliwa?')}
+              className="w-full border border-gray-300 rounded-2xl px-4 py-2.5 text-sm" />
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200 px-4 py-3">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{t('Amount (KES)', 'Kiasi (KES)')}</p>
+            <div className="flex items-center gap-3">
+              <span className="text-gray-400 font-medium text-sm">KES</span>
+              <input type="number" inputMode="numeric" placeholder="0" value={manualAmount}
+                onChange={e => setManualAmount(e.target.value)}
+                className="flex-1 text-2xl font-bold text-center border-b-2 border-blue-400 focus:outline-none py-1 bg-transparent" />
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Enterprise */}
       <div>
@@ -418,84 +529,48 @@ function MatumiziTab({ t }: { t: (en: string, sw: string) => string }) {
         </div>
       </div>
 
-      {/* Vendor */}
-      <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-          {t('Vendor (optional)', 'Muuzaji (si lazima)')}
-        </p>
-        <input type="text" value={vendor} onChange={e => setVendor(e.target.value)}
-          placeholder={t('Shop / supplier name', 'Jina la duka / muuzaji')}
-          className="w-full border border-gray-300 rounded-2xl px-4 py-3 text-sm" />
-      </div>
-
-      {/* Item / account */}
-      <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-          {t('Item / Account', 'Kitu / Akaunti')}
-        </p>
-        <input type="text" value={account} onChange={e => setAccount(e.target.value)}
-          placeholder={t('What was bought?', 'Kitu gani kilinunuliwa?')}
-          className="w-full border border-gray-300 rounded-2xl px-4 py-3 text-sm" />
-      </div>
-
-      {/* Amount */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-          {t('Amount (KES)', 'Kiasi (KES)')}
-        </p>
-        <div className="flex items-center gap-3">
-          <span className="text-gray-500 font-medium">KES</span>
-          <input type="number" inputMode="numeric" placeholder="0" value={amount}
-            onChange={e => setAmount(e.target.value)}
-            className="flex-1 text-3xl font-bold text-center border-b-2 border-blue-400 focus:outline-none py-2 bg-transparent" />
+      {/* Vendor + date row */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{t('Shop', 'Duka')}</p>
+          <input type="text" value={vendor} onChange={e => setVendor(e.target.value)}
+            placeholder={t('Optional', 'Si lazima')}
+            className="w-full border border-gray-300 rounded-2xl px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{t('Date', 'Tarehe')}</p>
+          <input type="date" value={date} onChange={e => setDate(e.target.value)}
+            className="w-full border border-gray-300 rounded-2xl px-3 py-2 text-sm" />
         </div>
       </div>
 
       {/* Payment method */}
-      <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-          {t('Payment Method', 'Njia ya Malipo')}
-        </p>
-        <div className="flex gap-2">
-          <button onClick={() => setPayMethod('cash')}
-            className={`flex-1 py-2.5 rounded-2xl font-bold text-sm border-2 transition-all ${
-              payMethod === 'cash' ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-600 border-gray-200'
-            }`}>
-            💵 {t('Cash', 'Taslimu')}
-          </button>
-          <button onClick={() => setPayMethod('mpesa')}
-            className={`flex-1 py-2.5 rounded-2xl font-bold text-sm border-2 transition-all ${
-              payMethod === 'mpesa' ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-600 border-gray-200'
-            }`}>
-            📱 M-Pesa
-          </button>
-        </div>
+      <div className="flex gap-2">
+        <button onClick={() => setPayMethod('cash')}
+          className={`flex-1 py-2 rounded-2xl font-bold text-sm border-2 transition-all ${
+            payMethod === 'cash' ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-600 border-gray-200'
+          }`}>💵 {t('Cash', 'Taslimu')}</button>
+        <button onClick={() => setPayMethod('mpesa')}
+          className={`flex-1 py-2 rounded-2xl font-bold text-sm border-2 transition-all ${
+            payMethod === 'mpesa' ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-600 border-gray-200'
+          }`}>📱 M-Pesa</button>
       </div>
-
-      {/* M-Pesa ref (shown when mpesa selected) */}
       {payMethod === 'mpesa' && (
-        <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-            {t('M-Pesa Ref (optional)', 'Nambari ya M-Pesa (si lazima)')}
-          </p>
-          <input type="text" value={mpesaRef} onChange={e => setMpesaRef(e.target.value)}
-            placeholder="e.g. QGH3X4K2P1"
-            className="w-full border border-gray-300 rounded-2xl px-4 py-3 text-sm" />
-        </div>
+        <input type="text" value={mpesaRef} onChange={e => setMpesaRef(e.target.value)}
+          placeholder="M-Pesa Ref (e.g. QGH3X4K2P1)"
+          className="w-full border border-gray-300 rounded-2xl px-4 py-2.5 text-sm" />
       )}
-
-      {/* Date */}
-      <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{t('Date', 'Tarehe')}</p>
-        <input type="date" value={date} onChange={e => setDate(e.target.value)}
-          className="w-full border border-gray-300 rounded-2xl px-4 py-3 text-sm" />
-      </div>
 
       {error && <p className="text-red-600 text-sm text-center">{error}</p>}
 
-      <button onClick={handleSave} disabled={saving || !enterprise || !account.trim() || !amount}
+      <button onClick={handleSave}
+        disabled={saving || !enterprise || (isScanned ? scannedItems!.length === 0 : !manualAccount.trim() || !manualAmount)}
         className="w-full bg-blue-600 text-white font-bold py-3 rounded-2xl text-base disabled:opacity-40">
-        {saving ? t('Saving…', 'Inahifadhi…') : `✓ ${t('Save Expense', 'Hifadhi Gharama')}`}
+        {saving
+          ? t('Saving…', 'Inahifadhi…')
+          : isScanned
+            ? `✓ ${t('Save', 'Hifadhi')} ${scannedItems!.length} ${t('items', 'vitu')} · KES ${scannedTotal.toLocaleString()}`
+            : `✓ ${t('Save Expense', 'Hifadhi Gharama')}`}
       </button>
     </div>
   )

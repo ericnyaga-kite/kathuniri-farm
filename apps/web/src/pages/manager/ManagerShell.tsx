@@ -53,7 +53,7 @@ export function ManagerShell() {
       </main>
 
       {/* Bottom nav — 6 items */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 grid grid-cols-6 h-20">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 grid grid-cols-6 h-20 z-50">
         {[
           { to: '/manager',          end: true,  icon: '🏠', en: 'Home',    sw: 'Nyumba'      },
           { to: '/manager/maziwa',   end: false, icon: '🥛', en: 'Milk',    sw: 'Maziwa'      },
@@ -64,11 +64,22 @@ export function ManagerShell() {
         ].map(item => (
           <NavLink key={item.to} to={item.to} end={item.end}
             className={({ isActive }) =>
-              `flex flex-col items-center justify-center gap-1 text-xs font-medium ${isActive ? 'text-green-700' : 'text-gray-500'}`
+              `relative flex flex-col items-center justify-center gap-0.5 text-xs font-semibold transition-colors ${
+                isActive
+                  ? 'text-green-700 bg-green-50'
+                  : 'text-gray-400 active:bg-gray-50'
+              }`
             }
           >
-            <span className="text-2xl">{item.icon}</span>
-            {t(item.en, item.sw)}
+            {({ isActive }) => (
+              <>
+                {isActive && (
+                  <span className="absolute top-0 left-2 right-2 h-0.5 bg-green-600 rounded-b-full" />
+                )}
+                <span className="text-xl leading-none">{item.icon}</span>
+                <span className="text-[10px] leading-tight">{t(item.en, item.sw)}</span>
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
