@@ -25,13 +25,12 @@ const PORT = process.env.PORT ?? 3000
 
 app.use(helmet())
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? [
-        'https://farm.kiteholdings.biz',
-        'https://kathuniri-farm.pages.dev',
-        /^https:\/\/[a-z0-9]+\.kathuniri-farm\.pages\.dev$/,  // preview deployments
-      ]
-    : ['http://localhost:5173'],
+  origin: [
+    'https://farm.kiteholdings.biz',
+    'https://kathuniri-farm.pages.dev',
+    /^https:\/\/[a-z0-9]+\.kathuniri-farm\.pages\.dev$/,
+    'http://localhost:5173',
+  ],
   credentials: true,
 }))
 app.use(express.json({ limit: '10mb' }))
