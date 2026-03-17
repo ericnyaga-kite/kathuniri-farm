@@ -19,37 +19,135 @@ interface DailySummary {
 
 function fmtDate(iso: string) { return new Date(iso).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }) }
 function daysLeft(dateStr: string) { return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86_400_000) }
-
-function offsetDate(base: string, days: number): string {
-  const d = new Date(base)
-  d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
+function toDateStr(y: number, m: number, d: number) {
+  return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`
 }
 
-function fmtNavDate(dateStr: string, lang: string): string {
-  const d    = new Date(dateStr)
-  const tod  = new Date().toISOString().split('T')[0]
-  const yest = offsetDate(tod, -1)
-  if (dateStr === tod)  return lang === 'en' ? 'Today'     : 'Leo'
-  if (dateStr === yest) return lang === 'en' ? 'Yesterday' : 'Jana'
-  return d.toLocaleDateString(lang === 'en' ? 'en-KE' : 'sw-KE', { weekday: 'short', day: 'numeric', month: 'short' })
+// ─── Mini Calendar ────────────────────────────────────────────────────────
+
+const DAY_LABELS_EN = ['Su','Mo','Tu','We','Th','Fr','Sa']
+const DAY_LABELS_SW = ['Ji','Ju','Tz','Ar','Al','Ij','Sa']
+const MONTH_NAMES_EN = ['January','February','March','April','May','June','July','August','September','October','November','December']
+const MONTH_NAMES_SW = ['Januari','Februari','Machi','Aprili','Mei','Juni','Julai','Agosti','Septemba','Oktoba','Novemba','Desemba']
+
+interface CalendarProps {
+  selectedDate: string
+  onSelect: (date: string) => void
+  lang: string
 }
+
+function MiniCalendar({ selectedDate, onSelect, lang }: CalendarProps) {
+  const todayStr = new Date().toISOString().split('T')[0]
+  const selParts = selectedDate.split('-').map(Number)
+  const [viewYear,  setViewYear]  = useState(selParts[0])
+  const [viewMonth, setViewMonth] = useState(selParts[1]) // 1-based
+  const [activeDays, setActiveDays] = useState<Set<number>>(new Set())
+
+  useEffect(() => {
+    fetch(`${API}/api/summary/active-days?year=${viewYear}&month=${viewMonth}`, {
+      headers: { Authorization: `Bearer ${token()}` },
+    })
+      .then(r => r.json())
+      .then(d => setActiveDays(new Set(d.activeDays ?? [])))
+      .catch(() => {})
+  }, [viewYear, viewMonth])
+
+  function prevMonth() {
+    if (viewMonth === 1) { setViewYear(y => y - 1); setViewMonth(12) }
+    else setViewMonth(m => m - 1)
+  }
+  function nextMonth() {
+    const now = new Date()
+    if (viewYear > now.getFullYear() || (viewYear === now.getFullYear() && viewMonth >= now.getMonth() + 1)) return
+    if (viewMonth === 12) { setViewYear(y => y + 1); setViewMonth(1) }
+    else setViewMonth(m => m + 1)
+  }
+
+  const firstDow  = new Date(viewYear, viewMonth - 1, 1).getDay() // 0=Sun
+  const daysInMon = new Date(viewYear, viewMonth, 0).getDate()
+  const today     = new Date()
+  const isCurrentOrPast = viewYear < today.getFullYear() ||
+    (viewYear === today.getFullYear() && viewMonth <= today.getMonth() + 1)
+
+  // Build grid: leading blanks + day cells
+  const cells: (number | null)[] = [
+    ...Array(firstDow).fill(null),
+    ...Array.from({ length: daysInMon }, (_, i) => i + 1),
+  ]
+
+  const dayLabels = lang === 'en' ? DAY_LABELS_EN : DAY_LABELS_SW
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+      {/* Month header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <button onClick={prevMonth} className="text-green-700 font-bold text-xl px-2 py-1 active:opacity-60">‹</button>
+        <span className="font-semibold text-gray-800 text-sm">
+          {lang === 'en' ? MONTH_NAMES_EN[viewMonth - 1] : MONTH_NAMES_SW[viewMonth - 1]} {viewYear}
+        </span>
+        <button onClick={nextMonth} disabled={!isCurrentOrPast || (viewYear === today.getFullYear() && viewMonth >= today.getMonth() + 1)}
+          className="text-green-700 font-bold text-xl px-2 py-1 active:opacity-60 disabled:opacity-30">›</button>
+      </div>
+
+      {/* Day-of-week headers */}
+      <div className="grid grid-cols-7 border-b border-gray-100">
+        {dayLabels.map(d => (
+          <div key={d} className="text-center text-xs font-semibold text-gray-400 py-2">{d}</div>
+        ))}
+      </div>
+
+      {/* Day cells */}
+      <div className="grid grid-cols-7 p-2 gap-1">
+        {cells.map((day, i) => {
+          if (day === null) return <div key={`blank-${i}`} />
+
+          const dateStr    = toDateStr(viewYear, viewMonth, day)
+          const isToday    = dateStr === todayStr
+          const isSelected = dateStr === selectedDate
+          const isFuture   = dateStr > todayStr
+          const hasData    = activeDays.has(day)
+
+          return (
+            <button
+              key={day}
+              disabled={isFuture}
+              onClick={() => onSelect(dateStr)}
+              className={`relative flex flex-col items-center justify-center rounded-xl py-1.5 text-sm font-semibold transition-colors
+                ${isSelected ? 'bg-green-700 text-white' :
+                  isToday    ? 'bg-green-100 text-green-800' :
+                  isFuture   ? 'text-gray-200 cursor-default' :
+                               'text-gray-700 active:bg-gray-100'}
+              `}
+            >
+              {day}
+              {/* Data dot */}
+              {hasData && !isSelected && (
+                <span className={`absolute bottom-0.5 w-1 h-1 rounded-full ${isToday ? 'bg-green-600' : 'bg-green-500'}`} />
+              )}
+              {hasData && isSelected && (
+                <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-white opacity-80" />
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Home Page ────────────────────────────────────────────────────────────
 
 export function HomePage() {
   const { t, lang } = useLang()
   const navigate    = useNavigate()
   const todayStr    = new Date().toISOString().split('T')[0]
-  const [selectedDate, setSelectedDate] = useState(todayStr)
-  const [pending, setPending] = useState(0)
-  const [summary, setSummary] = useState<DailySummary | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [selectedDate,  setSelectedDate]  = useState(todayStr)
+  const [showCalendar,  setShowCalendar]  = useState(false)
+  const [pending,  setPending]  = useState(0)
+  const [summary,  setSummary]  = useState<DailySummary | null>(null)
+  const [loading,  setLoading]  = useState(true)
 
-  function goBack()    { setSelectedDate(d => offsetDate(d, -1)) }
-  function goForward() { if (selectedDate < todayStr) setSelectedDate(d => offsetDate(d, 1)) }
-
-  useEffect(() => {
-    pendingSyncCount().then(setPending)
-  }, [])
+  useEffect(() => { pendingSyncCount().then(setPending) }, [])
 
   useEffect(() => {
     setLoading(true); setSummary(null)
@@ -60,20 +158,44 @@ export function HomePage() {
       .finally(() => setLoading(false))
   }, [selectedDate])
 
+  function fmtSelected() {
+    if (selectedDate === todayStr) return lang === 'en' ? 'Today' : 'Leo'
+    const yest = new Date(todayStr); yest.setDate(yest.getDate() - 1)
+    if (selectedDate === yest.toISOString().split('T')[0]) return lang === 'en' ? 'Yesterday' : 'Jana'
+    return new Date(selectedDate).toLocaleDateString(
+      lang === 'en' ? 'en-KE' : 'sw-KE',
+      { weekday: 'short', day: 'numeric', month: 'short' }
+    )
+  }
+
+  function handleSelect(date: string) {
+    setSelectedDate(date)
+    setShowCalendar(false)
+  }
+
   return (
     <div className="p-4 pb-8 space-y-4">
-      {/* Header with date navigation */}
+      {/* Header */}
       <div className="pt-1">
         <h1 className="text-xl font-bold text-green-800">{t('Daily Summary', 'Muhtasari wa Leo')}</h1>
-        <div className="flex items-center gap-2 mt-1">
-          <button onClick={goBack} className="text-green-700 text-xl font-bold px-1 active:opacity-60">‹</button>
-          <span className="flex-1 text-center text-sm font-semibold text-gray-700">
-            {fmtNavDate(selectedDate, lang)}
-          </span>
-          <button onClick={goForward} disabled={selectedDate >= todayStr}
-            className="text-green-700 text-xl font-bold px-1 active:opacity-60 disabled:opacity-30">›</button>
-        </div>
+
+        {/* Date bar — tap to open calendar */}
+        <button
+          onClick={() => setShowCalendar(c => !c)}
+          className="mt-2 w-full flex items-center justify-between bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 active:bg-gray-100"
+        >
+          <span className="text-sm font-semibold text-gray-800">{fmtSelected()}</span>
+          <div className="flex items-center gap-1 text-green-700">
+            <span className="text-base">📅</span>
+            <span className="text-xs font-semibold">{showCalendar ? t('Close','Funga') : t('Calendar','Kalenda')}</span>
+          </div>
+        </button>
       </div>
+
+      {/* Inline calendar */}
+      {showCalendar && (
+        <MiniCalendar selectedDate={selectedDate} onSelect={handleSelect} lang={lang} />
+      )}
 
       {/* Pending sync */}
       {pending > 0 && (
@@ -148,7 +270,6 @@ export function HomePage() {
             <div className="text-center mb-3">
               <p className="text-3xl font-bold text-blue-700">{summary.milk.totalLitresToday} L</p>
             </div>
-            {/* Compact cow rows */}
             <div className="space-y-1">
               {summary.milk.cows.map(cow => (
                 <div key={cow.id} className="flex justify-between items-center bg-gray-50 rounded-xl px-3 py-2">

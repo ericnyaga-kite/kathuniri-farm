@@ -169,3 +169,51 @@ summaryRouter.get('/today', async (req, res, next) => {
     next(err)
   }
 })
+
+// GET /api/summary/active-days?year=YYYY&month=M
+// Returns an array of day-of-month numbers (1–31) that have at least one
+// milk production record, tea delivery, daily log, or rent payment.
+// Used by the calendar to show dot indicators.
+summaryRouter.get('/active-days', async (req, res, next) => {
+  try {
+    const now   = new Date()
+    const year  = req.query.year  ? parseInt(String(req.query.year))  : now.getFullYear()
+    const month = req.query.month ? parseInt(String(req.query.month)) : now.getMonth() + 1
+
+    const start = new Date(year, month - 1, 1)
+    const end   = new Date(year, month,     0, 23, 59, 59)
+
+    const [milkDays, teaDays, logDays, rentDays] = await Promise.all([
+      prisma.milkProduction.findMany({
+        where:  { productionDate: { gte: start, lte: end } },
+        select: { productionDate: true },
+        distinct: ['productionDate'],
+      }),
+      prisma.teaSmsDelivery.findMany({
+        where:  { deliveryDate: { gte: start, lte: end } },
+        select: { deliveryDate: true },
+        distinct: ['deliveryDate'],
+      }),
+      prisma.dailyLog.findMany({
+        where:  { logDate: { gte: start, lte: end } },
+        select: { logDate: true },
+        distinct: ['logDate'],
+      }),
+      prisma.rentPayment.findMany({
+        where:  { paymentDate: { gte: start, lte: end } },
+        select: { paymentDate: true },
+        distinct: ['paymentDate'],
+      }),
+    ])
+
+    const days = new Set<number>()
+    for (const r of milkDays) days.add(new Date(r.productionDate).getDate())
+    for (const r of teaDays)  days.add(new Date(r.deliveryDate).getDate())
+    for (const r of logDays)  days.add(new Date(r.logDate).getDate())
+    for (const r of rentDays) days.add(new Date(r.paymentDate).getDate())
+
+    res.json({ year, month, activeDays: Array.from(days).sort((a, b) => a - b) })
+  } catch (err) {
+    next(err)
+  }
+})
