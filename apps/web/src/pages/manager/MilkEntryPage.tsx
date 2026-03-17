@@ -7,7 +7,7 @@ const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
 function token() { return localStorage.getItem('kf_token') ?? '' }
 
 type Session  = 'dawn' | 'morning' | 'afternoon' | 'evening'
-type PageTab  = 'milk' | 'sales' | 'feed'
+type PageTab  = 'milk' | 'sales' | 'feed' | 'history'
 
 const SESSIONS: { key: Session; icon: string; en: string; sw: string }[] = [
   { key: 'dawn',      icon: '🌑', en: 'Dawn',      sw: 'Alfajiri' },
@@ -410,6 +410,73 @@ function FeedTab({ t, cows }: { t: (en: string, sw: string) => string; cows: Cow
   )
 }
 
+// ─── History Tab ─────────────────────────────────────────────────────────
+
+interface MilkRecord { id: string; productionDate: string; session: string; litres: number; cow?: { name: string } | null }
+
+function MilkHistoryTab({ t }: { t: (en: string, sw: string) => string }) {
+  const [records,  setRecords]  = useState<MilkRecord[]>([])
+  const [loading,  setLoading]  = useState(true)
+
+  useEffect(() => {
+    const to   = new Date().toISOString().split('T')[0]
+    const from = new Date(Date.now() - 6 * 86400000).toISOString().split('T')[0]
+    fetch(`${API}/api/dairy/milk/daily?from=${from}&to=${to}`, {
+      headers: { Authorization: `Bearer ${token()}` },
+    })
+      .then(r => r.json())
+      .then((data: MilkRecord[]) => setRecords(Array.isArray(data) ? data : []))
+      .catch(() => setRecords([]))
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) return <p className="text-sm text-gray-400 text-center py-8">{t('Loading…','Inapakia…')}</p>
+  if (records.length === 0) return (
+    <div className="text-center py-12">
+      <p className="text-4xl mb-2">🥛</p>
+      <p className="text-gray-400 text-sm">{t('No records in the last 7 days','Hakuna rekodi siku 7 zilizopita')}</p>
+    </div>
+  )
+
+  // Group by date
+  const byDate = new Map<string, MilkRecord[]>()
+  for (const r of records) {
+    const d = r.productionDate.split('T')[0]
+    const arr = byDate.get(d) ?? []
+    arr.push(r); byDate.set(d, arr)
+  }
+
+  const SESSION_ICONS: Record<string, string> = { dawn: '🌑', morning: '☀️', afternoon: '🌤', evening: '🌆' }
+
+  return (
+    <div className="space-y-4">
+      {Array.from(byDate.entries()).map(([date, recs]) => {
+        const total = recs.reduce((s, r) => s + r.litres, 0)
+        return (
+          <div key={date} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="flex justify-between items-center px-4 py-3 bg-gray-50 border-b border-gray-100">
+              <span className="text-sm font-semibold text-gray-700">
+                {new Date(date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
+              </span>
+              <span className="text-sm font-bold text-blue-700">{total.toFixed(1)} L</span>
+            </div>
+            {recs.map(r => (
+              <div key={r.id} className="flex items-center justify-between px-4 py-2 border-b border-gray-50 last:border-0">
+                <div className="flex items-center gap-2">
+                  <span>{SESSION_ICONS[r.session] ?? '🥛'}</span>
+                  <span className="text-sm text-gray-700">{r.cow?.name ?? '—'}</span>
+                  <span className="text-xs text-gray-400 capitalize">{r.session}</span>
+                </div>
+                <span className="text-sm font-semibold text-blue-700">{r.litres} L</span>
+              </div>
+            ))}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────
 
 export function MilkEntryPage() {
@@ -434,9 +501,10 @@ export function MilkEntryPage() {
   )
 
   const TABS: { key: PageTab; icon: string; en: string; sw: string }[] = [
-    { key: 'milk',  icon: '🥛', en: 'Milk',  sw: 'Maziwa'  },
-    { key: 'sales', icon: '💵', en: 'Sales', sw: 'Uuzaji'  },
-    { key: 'feed',  icon: '🌿', en: 'Feed',  sw: 'Chakula' },
+    { key: 'milk',    icon: '🥛', en: 'Milk',    sw: 'Maziwa'  },
+    { key: 'sales',   icon: '💵', en: 'Sales',   sw: 'Uuzaji'  },
+    { key: 'feed',    icon: '🌿', en: 'Feed',    sw: 'Chakula' },
+    { key: 'history', icon: '📖', en: 'History', sw: 'Historia' },
   ]
 
   return (
@@ -467,9 +535,10 @@ export function MilkEntryPage() {
         ))}
       </div>
 
-      {tab === 'milk'  && <MilkTab  t={t} cows={cows} cowsLoading={cowsLoading} />}
-      {tab === 'sales' && <SalesTab t={t} />}
-      {tab === 'feed'  && <FeedTab  t={t} cows={cows} />}
+      {tab === 'milk'    && <MilkTab        t={t} cows={cows} cowsLoading={cowsLoading} />}
+      {tab === 'sales'   && <SalesTab       t={t} />}
+      {tab === 'feed'    && <FeedTab        t={t} cows={cows} />}
+      {tab === 'history' && <MilkHistoryTab t={t} />}
     </div>
   )
 }

@@ -5,16 +5,17 @@ export const summaryRouter = Router()
 
 // GET /api/summary/today
 // Returns a consolidated snapshot for the manager's daily dashboard.
-summaryRouter.get('/today', async (_req, res, next) => {
+summaryRouter.get('/today', async (req, res, next) => {
   try {
-    const now = new Date()
-    const todayStart = new Date(now)
+    const dateParam  = req.query.date ? String(req.query.date) : null
+    const baseDate   = dateParam ? new Date(dateParam) : new Date()
+    const todayStart = new Date(baseDate)
     todayStart.setHours(0, 0, 0, 0)
-    const todayEnd = new Date(now)
+    const todayEnd   = new Date(baseDate)
     todayEnd.setHours(23, 59, 59, 999)
 
-    const month = now.getMonth() + 1
-    const year  = now.getFullYear()
+    const month = baseDate.getMonth() + 1
+    const year  = baseDate.getFullYear()
 
     // ── Tea ──────────────────────────────────────────────────────────────────
     // Only look for a delivery dated TODAY — never show stale data

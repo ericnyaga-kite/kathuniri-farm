@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { db, queueSync } from '../../db/localDb'
 import { useLang } from '../../store/langStore'
 import type { PickingSession, PickerRecord } from '@kathuniri/shared'
@@ -86,12 +86,90 @@ function ScanPane({
   )
 }
 
+// ─── Picking History ─────────────────────────────────────────────────────
+
+interface SessionSummary {
+  id: string; sessionDate: string; centreId: string
+  pickerTotalKg: number | null; reconciliationStatus: string
+  pickerRecords: { staffId: string; kgPicked: number; ratePerKg: number; grossPay: number }[]
+}
+
+function PickingHistoryTab({ t }: { t: (en: string, sw: string) => string }) {
+  const [sessions, setSessions] = useState<SessionSummary[]>([])
+  const [loading,  setLoading]  = useState(true)
+
+  useEffect(() => {
+    const to   = new Date().toISOString().split('T')[0]
+    const from = new Date(Date.now() - 13 * 86400000).toISOString().split('T')[0]
+    fetch(`${API}/api/tea/sessions?from=${from}&to=${to}`, {
+      headers: { Authorization: `Bearer ${token()}` },
+    })
+      .then(r => r.json())
+      .then((data: SessionSummary[]) => setSessions(Array.isArray(data) ? data : []))
+      .catch(() => setSessions([]))
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) return <p className="text-sm text-gray-400 text-center py-8">{t('Loading…','Inapakia…')}</p>
+  if (sessions.length === 0) return (
+    <div className="text-center py-12">
+      <p className="text-4xl mb-2">🍃</p>
+      <p className="text-gray-400 text-sm">{t('No picking sessions in the last 14 days','Hakuna rekodi siku 14 zilizopita')}</p>
+    </div>
+  )
+
+  return (
+    <div className="space-y-3">
+      {sessions.map(s => {
+        const totalKg  = s.pickerTotalKg ?? s.pickerRecords.reduce((sum, p) => sum + p.kgPicked, 0)
+        const casualPay = s.pickerRecords.filter(p => p.ratePerKg > 0).reduce((sum, p) => sum + p.grossPay, 0)
+        return (
+          <div key={s.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="flex justify-between items-center px-4 py-3 bg-gray-50 border-b border-gray-100">
+              <div>
+                <p className="text-sm font-semibold text-gray-800">{s.centreId}</p>
+                <p className="text-xs text-gray-400">
+                  {new Date(s.sessionDate).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-base font-bold text-green-700">{Number(totalKg).toFixed(1)} kg</p>
+                {casualPay > 0 && <p className="text-xs text-gray-500">KES {Math.round(casualPay).toLocaleString()}</p>}
+              </div>
+            </div>
+            {s.pickerRecords.length > 0 && (
+              <div className="px-4 py-2 space-y-1">
+                {s.pickerRecords.map((p, i) => (
+                  <div key={i} className="flex justify-between items-center text-sm">
+                    <div className="flex items-center gap-2">
+                      {p.ratePerKg === 0 && <span className="w-2 h-2 rounded-full bg-orange-300 inline-block" />}
+                      <span className="text-gray-700">{p.staffId}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-500">{p.kgPicked} kg</span>
+                      {p.ratePerKg > 0
+                        ? <span className="text-green-700 font-semibold w-16 text-right">KES {p.grossPay.toLocaleString()}</span>
+                        : <span className="text-orange-400 text-xs w-16 text-right">{t('salary','mshahara')}</span>
+                      }
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────
 
 export function PickingEntryPage() {
   const { t } = useLang()
   const today = new Date().toISOString().split('T')[0]
 
+  const [tab,      setTab]     = useState<'entry' | 'history'>('entry')
   const [date,     setDate]    = useState(today)
   const [sector,   setSector]  = useState('')
   const [pickers,  setPickers] = useState<PickerRow[]>([emptyRow(), emptyRow()])
@@ -176,6 +254,16 @@ export function PickingEntryPage() {
     <ScanPane t={t} onResult={handleScanResult} onCancel={() => setScanMode(false)} />
   )
 
+  if (tab === 'history') return (
+    <div className="p-4">
+      <div className="flex items-center gap-2 mb-4">
+        <button onClick={() => setTab('entry')} className="text-green-700 text-2xl">←</button>
+        <h1 className="text-xl font-bold text-green-800">{t('Picking History','Historia ya Kuokota')}</h1>
+      </div>
+      <PickingHistoryTab t={t} />
+    </div>
+  )
+
   if (saved) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-6">
       <div className="text-6xl mb-4">✅</div>
@@ -212,10 +300,16 @@ export function PickingEntryPage() {
           <h1 className="text-xl font-bold text-green-800">{t('Tea — Picking', 'Chai — Kuokota')}</h1>
           {scanned && <p className="text-xs text-green-600 font-medium">✓ {t('Scanned from photo','Imesomwa kutoka picha')}</p>}
         </div>
-        <button onClick={() => setScanMode(true)}
-          className="text-xs bg-gray-100 text-gray-600 px-3 py-2 rounded-xl font-semibold border border-gray-200">
-          📷 {t('Scan', 'Scan')}
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setScanMode(true)}
+            className="text-xs bg-gray-100 text-gray-600 px-3 py-2 rounded-xl font-semibold border border-gray-200">
+            📷 {t('Scan', 'Scan')}
+          </button>
+          <button onClick={() => setTab('history')}
+            className="text-xs bg-gray-100 text-gray-600 px-3 py-2 rounded-xl font-semibold border border-gray-200">
+            📖 {t('History', 'Historia')}
+          </button>
+        </div>
       </div>
 
       {/* Date */}

@@ -20,32 +20,59 @@ interface DailySummary {
 function fmtDate(iso: string) { return new Date(iso).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }) }
 function daysLeft(dateStr: string) { return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86_400_000) }
 
+function offsetDate(base: string, days: number): string {
+  const d = new Date(base)
+  d.setDate(d.getDate() + days)
+  return d.toISOString().split('T')[0]
+}
+
+function fmtNavDate(dateStr: string, lang: string): string {
+  const d    = new Date(dateStr)
+  const tod  = new Date().toISOString().split('T')[0]
+  const yest = offsetDate(tod, -1)
+  if (dateStr === tod)  return lang === 'en' ? 'Today'     : 'Leo'
+  if (dateStr === yest) return lang === 'en' ? 'Yesterday' : 'Jana'
+  return d.toLocaleDateString(lang === 'en' ? 'en-KE' : 'sw-KE', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
 export function HomePage() {
   const { t, lang } = useLang()
   const navigate    = useNavigate()
+  const todayStr    = new Date().toISOString().split('T')[0]
+  const [selectedDate, setSelectedDate] = useState(todayStr)
   const [pending, setPending] = useState(0)
   const [summary, setSummary] = useState<DailySummary | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const today = new Date().toLocaleDateString(lang === 'en' ? 'en-KE' : 'sw-KE', {
-    weekday: 'long', day: 'numeric', month: 'long',
-  })
+  function goBack()    { setSelectedDate(d => offsetDate(d, -1)) }
+  function goForward() { if (selectedDate < todayStr) setSelectedDate(d => offsetDate(d, 1)) }
 
   useEffect(() => {
     pendingSyncCount().then(setPending)
-    fetch(`${API}/api/summary/today`, { headers: { Authorization: `Bearer ${token()}` } })
+  }, [])
+
+  useEffect(() => {
+    setLoading(true); setSummary(null)
+    fetch(`${API}/api/summary/today?date=${selectedDate}`, { headers: { Authorization: `Bearer ${token()}` } })
       .then(r => r.json())
       .then(setSummary)
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [selectedDate])
 
   return (
     <div className="p-4 pb-8 space-y-4">
-      {/* Header */}
+      {/* Header with date navigation */}
       <div className="pt-1">
         <h1 className="text-xl font-bold text-green-800">{t('Daily Summary', 'Muhtasari wa Leo')}</h1>
-        <p className="text-xs text-gray-400 capitalize">{today}</p>
+        <div className="flex items-center gap-2 mt-1">
+          <button onClick={goBack} className="text-green-700 text-xl font-bold px-1 active:opacity-60">‹</button>
+          <span className="flex-1 text-center text-sm font-semibold text-gray-700">
+            {fmtNavDate(selectedDate, lang)}
+          </span>
+          <button onClick={goForward} disabled={selectedDate >= todayStr}
+            className="text-green-700 text-xl font-bold px-1 active:opacity-60 disabled:opacity-30">›</button>
+        </div>
       </div>
 
       {/* Pending sync */}
