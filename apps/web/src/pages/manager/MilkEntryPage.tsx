@@ -116,26 +116,30 @@ export function MilkEntryPage() {
   const [litres, setLitres]   = useState<Record<string, string>>({})
   const [saved, setSaved]     = useState(false)
   const [saving, setSaving]   = useState(false)
-  const [cows, setCows]       = useState<Cow[]>([
-    { id: 'cow-ndama-1', name: 'Ndama I' },
-    { id: 'cow-ndama-2', name: 'Ndama II' },
-  ])
+  const [cows,     setCows]     = useState<Cow[]>([])
+  const [cowsLoading, setCowsLoading] = useState(true)
   const [scanMode, setScanMode] = useState(false)
 
   const today = new Date().toISOString().split('T')[0]
 
-  // Fetch cows from API (falls back to hardcoded if offline)
   useEffect(() => {
     fetch(`${API}/api/dairy/cows`, {
       headers: { Authorization: `Bearer ${token()}` },
     })
       .then(r => r.json())
-      .then((data: Cow[]) => {
+      .then((data: (Cow & { status?: string })[]) => {
         if (Array.isArray(data) && data.length > 0) {
-          setCows(data.filter((c: Cow & { status?: string }) => c.status === 'milking' || c.status === undefined).map(c => ({ id: c.id, name: c.name })))
+          setCows(data.filter(c => c.status === 'milking').map(c => ({ id: c.id, name: c.name })))
         }
       })
-      .catch(() => {}) // stay with defaults if offline
+      .catch(() => {
+        // If offline, fall back to known seeded IDs
+        setCows([
+          { id: 'cow-ndama-1', name: 'Ndama I' },
+          { id: 'cow-ndama-2', name: 'Ndama II' },
+        ])
+      })
+      .finally(() => setCowsLoading(false))
   }, [])
 
   function handleLitres(cowId: string, val: string) {
@@ -245,6 +249,9 @@ export function MilkEntryPage() {
       </div>
 
       {/* Cow entries */}
+      {cowsLoading && (
+        <p className="text-sm text-gray-400 text-center py-4">{t('Loading…', 'Inapakia…')}</p>
+      )}
       <div className="space-y-4 mb-8">
         {cows.map(cow => (
           <div key={cow.id} className="bg-white rounded-2xl border border-gray-200 p-4">

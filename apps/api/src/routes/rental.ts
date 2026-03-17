@@ -32,11 +32,15 @@ function computeOutstandingMonths(
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/rental/rooms
+// GET /api/rental/rooms?year=YYYY&month=M
+// Returns all rooms. currentMonthPayment is for the requested period (defaults
+// to current month). outstandingMonths is computed from the most recent payment.
 // ---------------------------------------------------------------------------
-rentalRouter.get('/rooms', async (_req, res, next) => {
+rentalRouter.get('/rooms', async (req, res, next) => {
   try {
-    const now = new Date()
+    const now   = new Date()
+    const year  = req.query.year  ? parseInt(req.query.year  as string) : now.getFullYear()
+    const month = req.query.month ? parseInt(req.query.month as string) : now.getMonth() + 1
 
     const rooms = await prisma.rentalRoom.findMany({
       where: { active: true },
@@ -47,15 +51,29 @@ rentalRouter.get('/rooms', async (_req, res, next) => {
           take: 1,
         },
         rentPayments: {
-          orderBy: { paymentDate: 'desc' },
-          take: 1,
+          where: { periodYear: year, periodMonth: month },
+          orderBy: { paymentDate: 'asc' },
         },
       },
     })
 
+    // Fetch the single most-recent payment per room (for outstanding months calc)
+    const latestPayments = await prisma.rentPayment.findMany({
+      where: { roomId: { in: rooms.map(r => r.id) } },
+      orderBy: { paymentDate: 'desc' },
+      distinct: ['roomId'],
+    })
+    const latestByRoom = new Map(latestPayments.map(p => [p.roomId, p]))
+
     const result = rooms.map(room => {
-      const latestReading = room.electricityReadings[0] ?? null
-      const latestPayment = room.rentPayments[0] ?? null
+      const latestReading  = room.electricityReadings[0] ?? null
+      const monthPayments  = room.rentPayments           // all payments for selected month
+      const latestPayment  = latestByRoom.get(room.id)   ?? null
+
+      // Sum all payments for the selected month
+      const currentMonthRentPaid  = monthPayments.reduce((s, p) => s + Number(p.rentAmountKes),        0)
+      const currentMonthElecPaid  = monthPayments.reduce((s, p) => s + Number(p.electricityAmountKes), 0)
+      const currentMonthTotalPaid = monthPayments.reduce((s, p) => s + Number(p.totalAmountKes),       0)
 
       const outstandingMonths = computeOutstandingMonths(
         latestPayment?.paymentDate ?? null,
@@ -63,40 +81,39 @@ rentalRouter.get('/rooms', async (_req, res, next) => {
       )
 
       return {
-        id:                      room.id,
-        roomNumber:              room.roomNumber,
-        tenantName:              room.tenantName,
-        tenantPhone:             room.tenantPhone,
-        monthlyRentKes:          room.monthlyRentKes !== null ? Number(room.monthlyRentKes) : null,
-        electricityRatePerUnit:  Number(room.electricityRatePerUnit),
-        occupancyStatus:         room.occupancyStatus,
-        rentDueDay:              room.rentDueDay,
-        notes:                   room.notes,
-        active:                  room.active,
-        latestElectricityReading: latestReading
-          ? {
-              id:               latestReading.id,
-              readingDate:      latestReading.readingDate,
-              meterReading:     Number(latestReading.meterReading),
-              previousReading:  latestReading.previousReading !== null ? Number(latestReading.previousReading) : null,
-              unitsConsumed:    latestReading.unitsConsumed    !== null ? Number(latestReading.unitsConsumed)   : null,
-              amountKes:        latestReading.amountKes        !== null ? Number(latestReading.amountKes)       : null,
-              source:           latestReading.source,
-            }
-          : null,
-        latestRentPayment: latestPayment
-          ? {
-              id:                  latestPayment.id,
-              paymentDate:         latestPayment.paymentDate,
-              periodMonth:         latestPayment.periodMonth,
-              periodYear:          latestPayment.periodYear,
-              rentAmountKes:       Number(latestPayment.rentAmountKes),
-              electricityAmountKes: Number(latestPayment.electricityAmountKes),
-              totalAmountKes:      Number(latestPayment.totalAmountKes),
-              paymentMethod:       latestPayment.paymentMethod,
-              mpesaRef:            latestPayment.mpesaRef,
-            }
-          : null,
+        id:                     room.id,
+        roomNumber:             room.roomNumber,
+        tenantName:             room.tenantName,
+        tenantPhone:            room.tenantPhone,
+        monthlyRentKes:         room.monthlyRentKes !== null ? Number(room.monthlyRentKes) : null,
+        electricityRatePerUnit: Number(room.electricityRatePerUnit),
+        occupancyStatus:        room.occupancyStatus,
+        rentDueDay:             room.rentDueDay,
+        notes:                  room.notes,
+        latestElectricityReading: latestReading ? {
+          id:              latestReading.id,
+          readingDate:     latestReading.readingDate,
+          meterReading:    Number(latestReading.meterReading),
+          previousReading: latestReading.previousReading !== null ? Number(latestReading.previousReading) : null,
+          unitsConsumed:   latestReading.unitsConsumed   !== null ? Number(latestReading.unitsConsumed)   : null,
+          amountKes:       latestReading.amountKes       !== null ? Number(latestReading.amountKes)       : null,
+          source:          latestReading.source,
+        } : null,
+        // All payments for the selected month (supports partial payments)
+        currentMonthPayments: monthPayments.map(p => ({
+          id:                   p.id,
+          paymentDate:          p.paymentDate,
+          periodMonth:          p.periodMonth,
+          periodYear:           p.periodYear,
+          rentAmountKes:        Number(p.rentAmountKes),
+          electricityAmountKes: Number(p.electricityAmountKes),
+          totalAmountKes:       Number(p.totalAmountKes),
+          paymentMethod:        p.paymentMethod,
+          mpesaRef:             p.mpesaRef,
+        })),
+        currentMonthRentPaid,
+        currentMonthElecPaid,
+        currentMonthTotalPaid,
         outstandingMonths,
       }
     })
