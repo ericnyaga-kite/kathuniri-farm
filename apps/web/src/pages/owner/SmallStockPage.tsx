@@ -37,32 +37,42 @@ const SPECIES_ICON: Record<string, string> = {
   other: '🐾',
 }
 
+const SPECIES_OPTIONS = ['bull', 'sheep', 'goat', 'pig', 'rabbit', 'other']
+
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 // ─── Inline edit form ────────────────────────────────────────────────────
 
-function AnimalEditForm({ animal, onSaved, onCancel }: {
-  animal: Animal; onSaved: (updated: Animal) => void; onCancel: () => void
+function AnimalForm({ animal, onSaved, onCancel }: {
+  animal?: Animal
+  onSaved: (saved: Animal) => void
+  onCancel: () => void
 }) {
   const { t } = useLang()
-  const [name,        setName]    = useState(animal.name ?? '')
-  const [tagNumber,   setTag]     = useState(animal.tagNumber ?? '')
-  const [status,      setStatus]  = useState(animal.status)
-  const [dateOfBirth, setDob]     = useState(animal.dateOfBirth ? animal.dateOfBirth.split('T')[0] : '')
-  const [notes,       setNotes]   = useState(animal.notes ?? '')
+  const isEdit = !!animal
+  const [name,        setName]    = useState(animal?.name ?? '')
+  const [species,     setSpecies] = useState(animal?.species ?? 'sheep')
+  const [sex,         setSex]     = useState(animal?.sex ?? 'female')
+  const [tagNumber,   setTag]     = useState(animal?.tagNumber ?? '')
+  const [status,      setStatus]  = useState(animal?.status ?? 'active')
+  const [dateOfBirth, setDob]     = useState(animal?.dateOfBirth ? animal.dateOfBirth.split('T')[0] : '')
+  const [notes,       setNotes]   = useState(animal?.notes ?? '')
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState('')
 
   async function save() {
     setSaving(true); setError('')
     try {
-      const r = await fetch(`${API}/api/dairy/small-stock/${animal.id}`, {
-        method: 'PATCH',
+      const url    = isEdit ? `${API}/api/dairy/small-stock/${animal!.id}` : `${API}/api/dairy/small-stock`
+      const method = isEdit ? 'PATCH' : 'POST'
+      const r = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
         body: JSON.stringify({
           name: name.trim() || null,
+          species, sex,
           tagNumber: tagNumber.trim() || null,
           status,
           dateOfBirth: dateOfBirth || null,
@@ -70,7 +80,8 @@ function AnimalEditForm({ animal, onSaved, onCancel }: {
         }),
       })
       if (!r.ok) throw new Error('Failed')
-      onSaved({ ...animal, ...(await r.json()) })
+      const saved = await r.json()
+      onSaved(isEdit ? { ...animal!, ...saved } : { ...saved, healthEvents: [] })
     } catch { setError(t('Failed to save', 'Imeshindwa kuhifadhi')) }
     finally { setSaving(false) }
   }
@@ -78,11 +89,26 @@ function AnimalEditForm({ animal, onSaved, onCancel }: {
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-2 mt-2">
       <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide">
-        {t('Edit Details', 'Hariri Maelezo')}
+        {isEdit ? t('Edit Details', 'Hariri Maelezo') : t('Add Animal', 'Ongeza Mnyama')}
       </p>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="text-xs text-gray-500">{t('Name', 'Jina')}</label>
+          <label className="text-xs text-gray-500">{t('Species', 'Aina ya Mnyama')}</label>
+          <select value={species} onChange={e => setSpecies(e.target.value)}
+            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm">
+            {SPECIES_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs text-gray-500">{t('Sex', 'Jinsia')}</label>
+          <select value={sex} onChange={e => setSex(e.target.value)}
+            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm">
+            <option value="male">{t('Male', 'Dume')}</option>
+            <option value="female">{t('Female', 'Jike')}</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs text-gray-500">{t('Name (optional)', 'Jina (si lazima)')}</label>
           <input type="text" value={name} onChange={e => setName(e.target.value)}
             className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" />
         </div>
@@ -91,8 +117,6 @@ function AnimalEditForm({ animal, onSaved, onCancel }: {
           <input type="text" value={tagNumber} onChange={e => setTag(e.target.value)}
             className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm" />
         </div>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="text-xs text-gray-500">{t('Status', 'Hali')}</label>
           <select value={status} onChange={e => setStatus(e.target.value)}
@@ -264,7 +288,7 @@ function AnimalCard({ animal: initialAnimal, t }: {
 
       {/* Edit form */}
       {editing && (
-        <AnimalEditForm
+        <AnimalForm
           animal={animal}
           onSaved={updated => { setAnimal(updated); setEditing(false) }}
           onCancel={() => setEditing(false)}
@@ -324,25 +348,33 @@ function AnimalCard({ animal: initialAnimal, t }: {
 export function SmallStockPage() {
   const { t } = useLang()
   const navigate = useNavigate()
-  const [animals, setAnimals] = useState<Animal[]>([])
-  const [loading, setLoading] = useState(true)
+  const [animals, setAnimals]   = useState<Animal[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [showAdd, setShowAdd]   = useState(false)
 
-  useEffect(() => {
+  function load() {
+    setLoading(true)
     fetch(`${API}/api/dairy/small-stock`, {
       headers: { Authorization: `Bearer ${token()}` },
     }).then(r => r.json()).then(setAnimals).catch(() => {}).finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { load() }, [])
 
   // Group by species
-  const bulls  = animals.filter(a => a.species === 'bull')
-  const sheep  = animals.filter(a => a.species === 'sheep')
-  const others = animals.filter(a => a.species !== 'bull' && a.species !== 'sheep')
+  const grouped = animals.reduce<Record<string, Animal[]>>((acc, a) => {
+    (acc[a.species] ??= []).push(a); return acc
+  }, {})
+  const speciesOrder = ['bull', 'sheep', 'goat', 'pig', 'rabbit', 'other']
+  const speciesPresent = speciesOrder.filter(s => grouped[s]?.length)
 
-  function Section({ title, list }: { title: string; list: Animal[] }) {
-    if (list.length === 0) return null
+  function Section({ species, list }: { species: string; list: Animal[] }) {
+    const label = species.charAt(0).toUpperCase() + species.slice(1)
     return (
       <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{title}</p>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+          {SPECIES_ICON[species] ?? '🐾'} {label}
+        </p>
         <div className="space-y-3">
           {list.map(a => <AnimalCard key={a.id} animal={a} t={t} />)}
         </div>
@@ -354,20 +386,33 @@ export function SmallStockPage() {
     <div className="p-4 max-w-lg mx-auto space-y-5 pb-8">
       <div className="flex items-center gap-3 pt-1">
         <button onClick={() => navigate(-1)} className="text-green-700 text-2xl">←</button>
-        <h1 className="text-xl font-bold text-green-800">{t('Small Stock', 'Mifugo Midogo')}</h1>
+        <h1 className="text-xl font-bold text-green-800 flex-1">{t('Small Stock', 'Mifugo Midogo')}</h1>
+        <button
+          onClick={() => setShowAdd(s => !s)}
+          className="text-xs bg-green-700 text-white px-3 py-1.5 rounded-xl font-semibold"
+        >
+          {showAdd ? t('Cancel', 'Ghairi') : `+ ${t('Add', 'Ongeza')}`}
+        </button>
       </div>
+
+      {showAdd && (
+        <AnimalForm
+          onSaved={a => { setAnimals(prev => [a, ...prev]); setShowAdd(false) }}
+          onCancel={() => setShowAdd(false)}
+        />
+      )}
 
       {loading && <p className="text-center text-gray-400 py-12">{t('Loading…', 'Inapakia…')}</p>}
 
-      {!loading && animals.length === 0 && (
+      {!loading && animals.length === 0 && !showAdd && (
         <p className="text-center text-gray-400 py-12">{t('No animals recorded.', 'Hakuna mifugo iliyorekodiwa.')}</p>
       )}
 
       {!loading && (
         <div className="space-y-5">
-          <Section title={t('Bull', 'Fahali')} list={bulls} />
-          <Section title={t('Sheep', 'Kondoo')} list={sheep} />
-          <Section title={t('Other', 'Wengine')} list={others} />
+          {speciesPresent.map(s => (
+            <Section key={s} species={s} list={grouped[s]} />
+          ))}
         </div>
       )}
     </div>

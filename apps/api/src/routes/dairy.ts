@@ -561,12 +561,34 @@ dairyRouter.get('/small-stock', async (_req, res, next) => {
   } catch (err) { next(err) }
 })
 
+// POST /api/dairy/small-stock
+dairyRouter.post('/small-stock', async (req, res, next) => {
+  try {
+    const b = req.body as Record<string, unknown>
+    const animal = await prisma.smallStock.create({
+      data: {
+        name:        b.name        ? String(b.name)        : null,
+        species:     String(b.species ?? 'other'),
+        sex:         String(b.sex ?? 'male'),
+        tagNumber:   b.tagNumber   ? String(b.tagNumber)   : null,
+        dateOfBirth: b.dateOfBirth ? new Date(String(b.dateOfBirth)) : null,
+        status:      String(b.status ?? 'active'),
+        notes:       b.notes       ? String(b.notes)       : null,
+        active:      true,
+      },
+    })
+    res.status(201).json(animal)
+  } catch (err) { next(err) }
+})
+
 // PATCH /api/dairy/small-stock/:id
 dairyRouter.patch('/small-stock/:id', async (req, res, next) => {
   try {
     const b = req.body as Record<string, unknown>
     const data: Record<string, unknown> = {}
     if (b.name        !== undefined) data.name        = b.name        ? String(b.name)        : null
+    if (b.species     !== undefined) data.species     = String(b.species)
+    if (b.sex         !== undefined) data.sex         = String(b.sex)
     if (b.tagNumber   !== undefined) data.tagNumber   = b.tagNumber   ? String(b.tagNumber)   : null
     if (b.status      !== undefined) data.status      = String(b.status)
     if (b.dateOfBirth !== undefined) data.dateOfBirth = b.dateOfBirth ? new Date(String(b.dateOfBirth)) : null
