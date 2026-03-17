@@ -237,6 +237,81 @@ staffRouter.post('/payroll/runs', async (req, res, next) => {
   }
 })
 
+// ─── POST /api/staff/attendance ──────────────────────────────────────────────
+// Save daily attendance as a DailyLog entry (category='labour').
+// Body: { date, records: [{staffId, present}], casuals: [{name, task, amountKes}] }
+// NOTE: Must be registered before /:id.
+
+staffRouter.post('/attendance', async (req, res, next) => {
+  try {
+    const body = req.body as {
+      date: string
+      records: Array<{ staffId: string; present: boolean }>
+      casuals: Array<{ name: string; task: string; amountKes: number }>
+    }
+
+    if (!body.date) {
+      res.status(400).json({ error: 'date is required' })
+      return
+    }
+
+    const logDate = new Date(body.date)
+    const payload = { records: body.records ?? [], casuals: body.casuals ?? [] }
+
+    // Upsert: delete existing log for same date+category, then create
+    await prisma.dailyLog.deleteMany({
+      where: { logDate, category: 'labour', title: 'Attendance' },
+    })
+
+    const log = await prisma.dailyLog.create({
+      data: {
+        logDate,
+        category: 'labour',
+        title: 'Attendance',
+        body: JSON.stringify(payload),
+        createdBy: 'manager',
+      },
+    })
+
+    res.status(201).json(log)
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ─── GET /api/staff/attendance?date=YYYY-MM-DD ────────────────────────────────
+// Returns stored attendance for the given date.
+// NOTE: Must be registered before /:id.
+
+staffRouter.get('/attendance', async (req, res, next) => {
+  try {
+    const { date } = req.query as { date?: string }
+
+    if (!date) {
+      res.status(400).json({ error: 'date query param required' })
+      return
+    }
+
+    const logDate = new Date(date)
+
+    const log = await prisma.dailyLog.findFirst({
+      where: { logDate, category: 'labour', title: 'Attendance' },
+    })
+
+    if (!log) {
+      res.json({ date, records: [], casuals: [] })
+      return
+    }
+
+    let payload: { records: unknown[]; casuals: unknown[] } = { records: [], casuals: [] }
+    try { payload = JSON.parse(log.body) as typeof payload } catch { /* leave empty */ }
+
+    res.json({ date, records: payload.records ?? [], casuals: payload.casuals ?? [] })
+  } catch (err) {
+    next(err)
+  }
+})
+
 // ─── GET /api/staff/:id ───────────────────────────────────────────────────────
 // Staff detail with all advances (including deductions) and last 3 payroll records.
 

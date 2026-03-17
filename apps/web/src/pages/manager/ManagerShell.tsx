@@ -9,6 +9,8 @@ import { DailyLogPage }     from './DailyLogPage'
 import { FarmMapPage }      from './FarmMapPage'
 import { PlotDetailPage }   from './PlotDetailPage'
 import { RentalEntryPage }  from './RentalEntryPage'
+import { AnimalEntryPage }  from './AnimalEntryPage'
+import { LabourPage }       from './LabourPage'
 
 export function ManagerShell() {
   const { user, logout } = useAuthStore()
@@ -45,17 +47,20 @@ export function ManagerShell() {
           <Route path="log"             element={<DailyLogPage />} />
           <Route path="shamba"          element={<FarmMapPage />} />
           <Route path="shamba/:plotId"  element={<PlotDetailPage />} />
+          <Route path="wanyama"         element={<AnimalEntryPage />} />
+          <Route path="kazi"            element={<LabourPage />} />
         </Routes>
       </main>
 
-      {/* Bottom nav — 5 items */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 grid grid-cols-5 h-20">
+      {/* Bottom nav — 6 items */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 grid grid-cols-6 h-20">
         {[
-          { to: '/manager',        end: true,  icon: '🏠', en: 'Home',  sw: 'Nyumba' },
-          { to: '/manager/maziwa', end: false, icon: '🥛', en: 'Milk',  sw: 'Maziwa' },
-          { to: '/manager/chai',   end: false, icon: '🍃', en: 'Tea',   sw: 'Chai'   },
-          { to: '/manager/kodi',   end: false, icon: '🏠', en: 'Rent',  sw: 'Kodi'   },
-          { to: '/manager/log',    end: false, icon: '📝', en: 'Log',   sw: 'Kumbukumbu' },
+          { to: '/manager',          end: true,  icon: '🏠', en: 'Home',    sw: 'Nyumba'      },
+          { to: '/manager/maziwa',   end: false, icon: '🥛', en: 'Milk',    sw: 'Maziwa'      },
+          { to: '/manager/chai',     end: false, icon: '🍃', en: 'Tea',     sw: 'Chai'        },
+          { to: '/manager/wanyama',  end: false, icon: '🐄', en: 'Animals', sw: 'Wanyama'     },
+          { to: '/manager/kazi',     end: false, icon: '👷', en: 'Work',    sw: 'Kazi'        },
+          { to: '/manager/log',      end: false, icon: '📝', en: 'Log',     sw: 'Kumbukumbu'  },
         ].map(item => (
           <NavLink key={item.to} to={item.to} end={item.end}
             className={({ isActive }) =>

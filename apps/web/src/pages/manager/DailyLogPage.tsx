@@ -124,6 +124,17 @@ function WriteTab({ t, lang }: { t: (en: string, sw: string) => string; lang: st
 
   return (
     <div className="space-y-5">
+      {/* Note about expenses */}
+      <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-start gap-2">
+        <span className="text-lg">💡</span>
+        <p className="text-xs text-amber-800 leading-relaxed">
+          {t(
+            'To record expenses (purchases, payments), use the Work tab (👷 Kazi) instead.',
+            'Kuingiza gharama (manunuzi, malipo), tumia kichupo cha Kazi (👷 Kazi).'
+          )}
+        </p>
+      </div>
+
       {/* Category */}
       <div>
         <p className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wide">{t('Category', 'Kitengo')}</p>
